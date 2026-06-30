@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Match } from '../entities/match.entity';
@@ -24,7 +29,42 @@ export class MatchesService {
     private userRepository: Repository<User>,
   ) {}
 
-  async swipe(createMatchDto: CreateMatchDto, petId1: string) {
+  private safeJsonParse<T>(jsonString: string | null | undefined, defaultValue: T): T {
+    if (!jsonString) return defaultValue;
+    try {
+      return JSON.parse(jsonString);
+    } catch (error) {
+      return defaultValue;
+    }
+  }
+
+  private transformPet(pet: Pet): any {
+    return {
+      ...pet,
+      fotos: this.safeJsonParse(pet.fotos, []),
+      dados_saude: this.safeJsonParse(pet.dados_saude, null),
+    };
+  }
+
+  private transformMatch(match: Match): any {
+    return {
+      ...match,
+      pet1: match.pet1 ? this.transformPet(match.pet1) : match.pet1,
+      pet2: match.pet2 ? this.transformPet(match.pet2) : match.pet2,
+    };
+  }
+
+  private validatePetCompatibility(pet1: Pet, pet2: Pet) {
+    if (pet1.especie !== pet2.especie) {
+      throw new BadRequestException('Pets de espécies diferentes não podem dar match');
+    }
+
+    if (pet1.genero === pet2.genero) {
+      throw new BadRequestException('Para reprodução, os pets precisam ter gêneros opostos');
+    }
+  }
+
+  async swipe(createMatchDto: CreateMatchDto, petId1: string, userId: string) {
     const { fk_pet_id_2, action } = createMatchDto;
 
     // Verificar se os pets existem
@@ -42,6 +82,10 @@ export class MatchesService {
       throw new NotFoundException('Pet não encontrado');
     }
 
+    if (pet1.fk_usuario_id !== userId) {
+      throw new ForbiddenException('Você só pode fazer swipe com seus próprios pets');
+    }
+
     // Não permitir swipe no próprio pet
     if (pet1.id === pet2.id) {
       throw new BadRequestException('Não é possível fazer swipe no próprio pet');
@@ -51,6 +95,8 @@ export class MatchesService {
     if (pet1.fk_usuario_id === pet2.fk_usuario_id) {
       throw new BadRequestException('Não é possível fazer swipe em pets do mesmo usuário');
     }
+
+    this.validatePetCompatibility(pet1, pet2);
 
     // Verificar se já existe um swipe
     const existingSwipe = await this.swipeRepository.findOne({
@@ -84,6 +130,22 @@ export class MatchesService {
       });
 
       if (reciprocalSwipe) {
+        const existingMatch = await this.matchRepository
+          .createQueryBuilder('match')
+          .where(
+            '(match.fk_pet_id_1 = :petId1 AND match.fk_pet_id_2 = :petId2) OR (match.fk_pet_id_1 = :petId2 AND match.fk_pet_id_2 = :petId1)',
+            { petId1, petId2: fk_pet_id_2 },
+          )
+          .getOne();
+
+        if (existingMatch) {
+          return {
+            swipe,
+            match: existingMatch,
+            isMatch: true,
+          };
+        }
+
         // Criar match
         const match = this.matchRepository.create({
           fk_pet_id_1: petId1,
@@ -128,10 +190,10 @@ export class MatchesService {
       .andWhere('match.status = :status', { status: 'aceito' })
       .getMany();
 
-    return matches;
+    return matches.map((match) => this.transformMatch(match));
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userId: string) {
     const match = await this.matchRepository.findOne({
       where: { id },
       relations: ['pet1', 'pet2', 'pet1.usuario', 'pet2.usuario', 'conversa'],
@@ -141,10 +203,21 @@ export class MatchesService {
       throw new NotFoundException('Match não encontrado');
     }
 
-    return match;
+    if (
+      match.pet1?.fk_usuario_id !== userId &&
+      match.pet2?.fk_usuario_id !== userId
+    ) {
+      throw new ForbiddenException('Você não tem permissão para ver este match');
+    }
+
+    return this.transformMatch(match);
   }
 
-  async getPotentialMatches(petId: string, limit: number = 10): Promise<any[]> {
+  async getPotentialMatches(
+    petId: string,
+    limit: number = 10,
+    userId: string,
+  ): Promise<any[]> {
     // Buscar pets que ainda não receberam swipe do pet atual
     const swipedPetIds = await this.swipeRepository
       .createQueryBuilder('swipe')
@@ -162,6 +235,10 @@ export class MatchesService {
 
     if (!pet) {
       throw new NotFoundException('Pet não encontrado');
+    }
+
+    if (pet.fk_usuario_id !== userId) {
+      throw new ForbiddenException('Você só pode buscar matches para seus próprios pets');
     }
 
     // Buscar usuário dono do pet com localização
@@ -238,7 +315,8 @@ export class MatchesService {
     }
 
     // Limitar resultados
-    filteredPets = filteredPets.slice(0, limit);
+    const parsedLimit = Number(limit) || 10;
+    filteredPets = filteredPets.slice(0, parsedLimit);
     
     // Processar fotos e dados de saúde
     return filteredPets.map(p => {
@@ -271,4 +349,3 @@ export class MatchesService {
     });
   }
 }
-

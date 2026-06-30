@@ -1,6 +1,10 @@
 import { DataSource } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { Pet } from '../entities/pet.entity';
+import { Match } from '../entities/match.entity';
+import { Conversation } from '../entities/conversation.entity';
+import { Message } from '../entities/message.entity';
+import { Swipe } from '../entities/swipe.entity';
 import * as bcrypt from 'bcrypt';
 
 // Coordenadas de bairros de São Paulo (latitude, longitude)
@@ -154,8 +158,16 @@ function randomDescription(
 export async function seedDatabase(dataSource: DataSource) {
   const userRepository = dataSource.getRepository(User);
   const petRepository = dataSource.getRepository(Pet);
+  const swipeRepository = dataSource.getRepository(Swipe);
+  const matchRepository = dataSource.getRepository(Match);
+  const conversationRepository = dataSource.getRepository(Conversation);
+  const messageRepository = dataSource.getRepository(Message);
 
   // Limpar dados existentes
+  await messageRepository.clear();
+  await conversationRepository.clear();
+  await matchRepository.clear();
+  await swipeRepository.clear();
   await petRepository.clear();
   await userRepository.clear();
 
@@ -164,6 +176,7 @@ export async function seedDatabase(dataSource: DataSource) {
   // Criar muitos usuários
   const users: User[] = [];
   const totalUsers = 50;
+  const hashedPassword = await bcrypt.hash('123456', 10);
 
   for (let i = 0; i < totalUsers; i++) {
     const location = SP_LOCATIONS[i % SP_LOCATIONS.length];
@@ -182,7 +195,6 @@ export async function seedDatabase(dataSource: DataSource) {
     const raios = [5, 10, 20, 50];
     const raioMaximo = raios[Math.floor(Math.random() * raios.length)];
 
-    const hashedPassword = await bcrypt.hash('123456', 10);
     const user = userRepository.create({
       nome: `Usuário ${i + 1} - ${location.nome}`,
       email: `usuario${i + 1}@teste.com`,
@@ -201,7 +213,119 @@ export async function seedDatabase(dataSource: DataSource) {
   const pets: Pet[] = [];
   const totalPets = 120;
 
-  for (let i = 0; i < totalPets; i++) {
+  const createSeedPet = async (
+    user: User,
+    petData: {
+      nome: string;
+      especie: string;
+      raca: string;
+      data_nascimento: Date;
+      genero: string;
+      porte: string;
+      descricao: string;
+      pedigree: boolean;
+      fotos: string[];
+      verificado_clinica: boolean;
+    },
+  ) => {
+    const { fotos, ...petFields } = petData;
+    const pet = petRepository.create({
+      ...petFields,
+      fk_usuario_id: user.id,
+      fotos: JSON.stringify(fotos),
+      dados_saude: JSON.stringify({
+        vacinado: true,
+        castrado: false,
+        ultima_consulta: new Date('2026-05-15T10:00:00.000Z').toISOString(),
+      }),
+    });
+    const savedPet = await petRepository.save(pet);
+    pets.push(savedPet);
+    return savedPet;
+  };
+
+  const luna = await createSeedPet(users[0], {
+    nome: 'Luna Golden',
+    especie: 'Cão',
+    raca: 'Golden Retriever',
+    data_nascimento: new Date('2022-03-15'),
+    genero: 'Fêmea',
+    porte: 'Grande',
+    descricao: 'Golden Retriever dócil, sociável e com vacinas em dia.',
+    pedigree: true,
+    fotos: ['https://picsum.photos/seed/luna-golden/400/400'],
+    verificado_clinica: true,
+  });
+
+  const thor = await createSeedPet(users[1], {
+    nome: 'Thor Golden',
+    especie: 'Cão',
+    raca: 'Golden Retriever',
+    data_nascimento: new Date('2021-11-08'),
+    genero: 'Macho',
+    porte: 'Grande',
+    descricao: 'Golden Retriever calmo, saudável e acostumado com outros cães.',
+    pedigree: true,
+    fotos: ['https://picsum.photos/seed/thor-golden/400/400'],
+    verificado_clinica: true,
+  });
+
+  const mia = await createSeedPet(users[0], {
+    nome: 'Mia Persa',
+    especie: 'Gato',
+    raca: 'Persa',
+    data_nascimento: new Date('2023-01-20'),
+    genero: 'Fêmea',
+    porte: 'Pequeno',
+    descricao: 'Gata Persa tranquila, carinhosa e com acompanhamento veterinário.',
+    pedigree: true,
+    fotos: ['https://picsum.photos/seed/mia-persa/400/400'],
+    verificado_clinica: true,
+  });
+
+  const simba = await createSeedPet(users[2], {
+    nome: 'Simba Persa',
+    especie: 'Gato',
+    raca: 'Persa',
+    data_nascimento: new Date('2022-09-02'),
+    genero: 'Macho',
+    porte: 'Pequeno',
+    descricao: 'Gato Persa sociável, vacinado e com exames recentes.',
+    pedigree: true,
+    fotos: ['https://picsum.photos/seed/simba-persa/400/400'],
+    verificado_clinica: true,
+  });
+
+  const bella = await createSeedPet(users[3], {
+    nome: 'Bella Poodle',
+    especie: 'Cão',
+    raca: 'Poodle',
+    data_nascimento: new Date('2022-06-10'),
+    genero: 'Fêmea',
+    porte: 'Pequeno',
+    descricao: 'Poodle brincalhona, dócil e acostumada com crianças.',
+    pedigree: false,
+    fotos: ['https://picsum.photos/seed/bella-poodle/400/400'],
+    verificado_clinica: true,
+  });
+
+  const max = await createSeedPet(users[4], {
+    nome: 'Max Poodle',
+    especie: 'Cão',
+    raca: 'Poodle',
+    data_nascimento: new Date('2021-12-18'),
+    genero: 'Macho',
+    porte: 'Pequeno',
+    descricao: 'Poodle ativo, saudável e muito sociável.',
+    pedigree: false,
+    fotos: ['https://picsum.photos/seed/max-poodle/400/400'],
+    verificado_clinica: false,
+  });
+
+  const randomPetsToCreate = totalPets - pets.length;
+
+  for (let i = 0; i < randomPetsToCreate; i++) {
+    const petNumber = pets.length + 1;
     const user = users[Math.floor(Math.random() * users.length)];
     const especie = ESPECIES[Math.floor(Math.random() * ESPECIES.length)];
     const raca =
@@ -210,11 +334,11 @@ export async function seedDatabase(dataSource: DataSource) {
         : RACAS_GATOS[Math.floor(Math.random() * RACAS_GATOS.length)];
     const porte = PORTES[Math.floor(Math.random() * PORTES.length)];
     const nome =
-      NOMES_PETS[Math.floor(Math.random() * NOMES_PETS.length)] + ` ${i + 1}`;
+      NOMES_PETS[Math.floor(Math.random() * NOMES_PETS.length)] + ` ${petNumber}`;
 
     // Garantir diversidade de gêneros para possibilitar matches
     // Alternar entre macho e fêmea para ter bons matches
-    const finalGenero = i % 2 === 0 ? 'Macho' : 'Fêmea';
+    const finalGenero = petNumber % 2 === 0 ? 'Macho' : 'Fêmea';
 
     const petData = {
       nome,
@@ -226,7 +350,7 @@ export async function seedDatabase(dataSource: DataSource) {
       descricao: randomDescription(especie, raca, finalGenero),
       pedigree: Math.random() > 0.3, // 70% têm pedigree
       fk_usuario_id: user.id,
-      fotos: JSON.stringify([`https://picsum.photos/seed/${nome}${i}/400/400`]),
+      fotos: JSON.stringify([`https://picsum.photos/seed/${nome}${petNumber}/400/400`]),
       dados_saude: JSON.stringify({
         vacinado: true,
         castrado: false,
@@ -244,13 +368,121 @@ export async function seedDatabase(dataSource: DataSource) {
 
   console.log(`✅ Criados ${pets.length} pets`);
 
-  // Criar alguns matches e swipes para testar
+  const createSeedMatch = async (
+    pet1: Pet,
+    pet2: Pet,
+    messages: Array<{ sender: 'pet1' | 'pet2'; conteudo: string }>,
+  ) => {
+    await swipeRepository.save([
+      swipeRepository.create({
+        fk_pet_id_1: pet1.id,
+        fk_pet_id_2: pet2.id,
+        action: 'like',
+      }),
+      swipeRepository.create({
+        fk_pet_id_1: pet2.id,
+        fk_pet_id_2: pet1.id,
+        action: 'like',
+      }),
+    ]);
+
+    const match = await matchRepository.save(
+      matchRepository.create({
+        fk_pet_id_1: pet1.id,
+        fk_pet_id_2: pet2.id,
+        status: 'aceito',
+      }),
+    );
+
+    const conversation = await conversationRepository.save(
+      conversationRepository.create({
+        fk_match_id: match.id,
+        fk_participante_1_id: pet1.fk_usuario_id,
+        fk_participante_2_id: pet2.fk_usuario_id,
+      }),
+    );
+
+    for (const message of messages) {
+      await messageRepository.save(
+        messageRepository.create({
+          fk_conversa_id: conversation.id,
+          fk_remetente_id:
+            message.sender === 'pet1' ? pet1.fk_usuario_id : pet2.fk_usuario_id,
+          conteudo: message.conteudo,
+        }),
+      );
+    }
+
+    return { match, conversation };
+  };
+
+  const matchExamples = [
+    await createSeedMatch(luna, thor, [
+      {
+        sender: 'pet1',
+        conteudo:
+          'Oi! Vi que o Thor também é Golden e parece ter um temperamento ótimo.',
+      },
+      {
+        sender: 'pet2',
+        conteudo:
+          'Oi! Sim, ele é bem tranquilo. A Luna também tem pedigree e exames recentes?',
+      },
+      {
+        sender: 'pet1',
+        conteudo:
+          'Tem sim. Posso te enviar os exames e a carteirinha de vacinação.',
+      },
+      {
+        sender: 'pet2',
+        conteudo:
+          'Perfeito. Podemos marcar uma conversa com a veterinária essa semana.',
+      },
+    ]),
+    await createSeedMatch(mia, simba, [
+      {
+        sender: 'pet2',
+        conteudo:
+          'Olá! O Simba é Persa e já fez check-up este mês. A Mia é tranquila com outros gatos?',
+      },
+      {
+        sender: 'pet1',
+        conteudo:
+          'É bem tranquila e sociável. Também estamos priorizando acompanhamento veterinário.',
+      },
+      {
+        sender: 'pet2',
+        conteudo:
+          'Ótimo. Posso compartilhar o histórico de saúde dele pelo chat.',
+      },
+    ]),
+    await createSeedMatch(bella, max, [
+      {
+        sender: 'pet1',
+        conteudo:
+          'Oi! A Bella e o Max parecem compatíveis pelo porte e temperamento.',
+      },
+      {
+        sender: 'pet2',
+        conteudo:
+          'Também achei. O Max é bem ativo, mas se adapta fácil.',
+      },
+      {
+        sender: 'pet1',
+        conteudo:
+          'Vamos combinar uma chamada para conversar melhor sobre os cuidados?',
+      },
+    ]),
+  ];
+
   console.log('✅ Seed concluído com sucesso!');
   console.log(`📍 Localizações: ${SP_LOCATIONS.length} bairros de São Paulo`);
   console.log(
     `👥 Usuários: ${users.length} com localização e alcance configurado`,
   );
   console.log(`🐾 Pets: ${pets.length} distribuídos entre os usuários`);
+  console.log(`💕 Matches de exemplo: ${matchExamples.length}`);
+  console.log(`💬 Conversas com mensagens: ${matchExamples.length}`);
   console.log(`🔐 Senha padrão para todos: 123456`);
   console.log(
     `📧 Emails: usuario1@teste.com até usuario${totalUsers}@teste.com`,

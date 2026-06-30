@@ -14,10 +14,7 @@ export class ChatService {
     private conversationRepository: Repository<Conversation>,
   ) {}
 
-  async sendMessage(sendMessageDto: SendMessageDto, userId: string) {
-    const { conversationId, conteudo } = sendMessageDto;
-
-    // Verificar se a conversa existe e se o usuário é participante
+  async getConversationForParticipant(conversationId: string, userId: string) {
     const conversation = await this.conversationRepository.findOne({
       where: { id: conversationId },
     });
@@ -30,8 +27,16 @@ export class ChatService {
       conversation.fk_participante_1_id !== userId &&
       conversation.fk_participante_2_id !== userId
     ) {
-      throw new ForbiddenException('Você não tem permissão para enviar mensagens nesta conversa');
+      throw new ForbiddenException('Você não tem permissão para acessar esta conversa');
     }
+
+    return conversation;
+  }
+
+  async sendMessage(sendMessageDto: SendMessageDto, userId: string) {
+    const { conversationId, conteudo } = sendMessageDto;
+
+    await this.getConversationForParticipant(conversationId, userId);
 
     // Criar mensagem
     const message = this.messageRepository.create({
@@ -44,21 +49,7 @@ export class ChatService {
   }
 
   async getConversationMessages(conversationId: string, userId: string) {
-    // Verificar se o usuário é participante da conversa
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId },
-    });
-
-    if (!conversation) {
-      throw new NotFoundException('Conversa não encontrada');
-    }
-
-    if (
-      conversation.fk_participante_1_id !== userId &&
-      conversation.fk_participante_2_id !== userId
-    ) {
-      throw new ForbiddenException('Você não tem permissão para ver esta conversa');
-    }
+    await this.getConversationForParticipant(conversationId, userId);
 
     // Buscar mensagens
     const messages = await this.messageRepository.find({
@@ -106,4 +97,3 @@ export class ChatService {
     return conversationsWithLastMessage;
   }
 }
-

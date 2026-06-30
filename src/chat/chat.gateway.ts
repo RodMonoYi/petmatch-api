@@ -91,8 +91,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { conversationId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    client.join(`conversation_${data.conversationId}`);
-    return { success: true };
+    try {
+      const userId = this.connectedUsers.get(client.id);
+      if (!userId) {
+        return { success: false, error: 'Usuário não autenticado' };
+      }
+
+      await this.chatService.getConversationForParticipant(
+        data.conversationId,
+        userId,
+      );
+
+      client.join(`conversation_${data.conversationId}`);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   }
 
   @SubscribeMessage('leaveConversation')
@@ -104,4 +118,3 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return { success: true };
   }
 }
-

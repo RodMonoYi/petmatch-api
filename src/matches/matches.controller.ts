@@ -21,8 +21,9 @@ export class MatchesController {
   swipe(
     @Param('petId') petId: string,
     @Body() createMatchDto: CreateMatchDto,
+    @Request() req,
   ) {
-    return this.matchesService.swipe(createMatchDto, petId);
+    return this.matchesService.swipe(createMatchDto, petId, req.user.id);
   }
 
   @Get('my-matches')
@@ -33,14 +34,14 @@ export class MatchesController {
   @Get('potential/:petId')
   getPotentialMatches(
     @Param('petId') petId: string,
+    @Request() req,
     @Query('limit') limit?: number,
   ) {
-    return this.matchesService.getPotentialMatches(petId, limit);
+    return this.matchesService.getPotentialMatches(petId, limit, req.user.id);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.matchesService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req) {
+    return this.matchesService.findOne(id, req.user.id);
   }
 }
-
