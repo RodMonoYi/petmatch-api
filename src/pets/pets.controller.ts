@@ -27,8 +27,8 @@ export class PetsController {
   }
 
   @Get()
-  findAll(@Query() searchDto: SearchPetsDto) {
-    return this.petsService.findAll(searchDto);
+  findAll(@Query() searchDto: SearchPetsDto, @Request() req) {
+    return this.petsService.findAll(searchDto, req.user?.id);
   }
 
   @Get('my-pets')

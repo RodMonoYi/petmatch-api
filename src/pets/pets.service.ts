@@ -50,7 +50,7 @@ export class PetsService {
     return this.transformPet(savedPet);
   }
 
-  async findAll(searchDto: SearchPetsDto) {
+  async findAll(searchDto: SearchPetsDto, userId?: string) {
     const { page = 1, limit = 10, latitude, longitude, raio, ...filters } = searchDto;
     const skip = (page - 1) * limit;
 
@@ -60,13 +60,18 @@ export class PetsService {
       .skip(skip)
       .take(limit);
 
+    // Excluir pets do próprio usuário se userId fornecido
+    if (userId) {
+      query = query.andWhere('pet.fk_usuario_id != :userId', { userId });
+    }
+
     // Aplicar filtros
     if (filters.especie) {
       query = query.andWhere('pet.especie = :especie', { especie: filters.especie });
     }
 
     if (filters.raca) {
-      query = query.andWhere('pet.raca = :raca', { raca: filters.raca });
+      query = query.andWhere('pet.raca LIKE :raca', { raca: `%${filters.raca}%` });
     }
 
     if (filters.genero) {

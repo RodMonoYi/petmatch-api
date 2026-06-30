@@ -30,7 +30,9 @@ export class ChatService {
       conversation.fk_participante_1_id !== userId &&
       conversation.fk_participante_2_id !== userId
     ) {
-      throw new ForbiddenException('Você não tem permissão para enviar mensagens nesta conversa');
+      throw new ForbiddenException(
+        'Você não tem permissão para enviar mensagens nesta conversa',
+      );
     }
 
     // Criar mensagem
@@ -57,7 +59,9 @@ export class ChatService {
       conversation.fk_participante_1_id !== userId &&
       conversation.fk_participante_2_id !== userId
     ) {
-      throw new ForbiddenException('Você não tem permissão para ver esta conversa');
+      throw new ForbiddenException(
+        'Você não tem permissão para ver esta conversa',
+      );
     }
 
     // Buscar mensagens

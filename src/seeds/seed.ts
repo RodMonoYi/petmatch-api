@@ -1,6 +1,10 @@
 import { DataSource } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { Pet } from '../entities/pet.entity';
+import { Swipe } from '../entities/swipe.entity';
+import { Match } from '../entities/match.entity';
+import { Conversation } from '../entities/conversation.entity';
+import { Message } from '../entities/message.entity';
 import * as bcrypt from 'bcrypt';
 
 // Coordenadas de bairros de São Paulo (latitude, longitude)
@@ -120,6 +124,20 @@ const NOMES_PETS = [
 const PORTES = ['Pequeno', 'Médio', 'Grande'];
 const ESPECIES = ['Cão', 'Gato'];
 
+function getPetPhotoUrls(especie: string, seed: number): string[] {
+  if (especie === 'Cão') {
+    return [
+      `https://placedog.net/400/400?id=${(seed % 200) + 1}`,
+      `https://placedog.net/401/401?id=${((seed + 37) % 200) + 1}`,
+    ];
+  }
+
+  return [
+    `https://cataas.com/cat?width=400&height=400&hash=${seed + 1}`,
+    `https://cataas.com/cat?width=401&height=401&hash=${seed + 38}`,
+  ];
+}
+
 // Gerar data de nascimento aleatória (entre 1 e 5 anos atrás)
 function randomBirthDate(): Date {
   const yearsAgo = Math.floor(Math.random() * 5) + 1;
@@ -154,8 +172,16 @@ function randomDescription(
 export async function seedDatabase(dataSource: DataSource) {
   const userRepository = dataSource.getRepository(User);
   const petRepository = dataSource.getRepository(Pet);
+  const swipeRepository = dataSource.getRepository(Swipe);
+  const matchRepository = dataSource.getRepository(Match);
+  const conversationRepository = dataSource.getRepository(Conversation);
+  const messageRepository = dataSource.getRepository(Message);
 
-  // Limpar dados existentes
+  // Limpar dados existentes (ordem reversa das dependências)
+  await messageRepository.clear();
+  await conversationRepository.clear();
+  await matchRepository.clear();
+  await swipeRepository.clear();
   await petRepository.clear();
   await userRepository.clear();
 
@@ -226,7 +252,7 @@ export async function seedDatabase(dataSource: DataSource) {
       descricao: randomDescription(especie, raca, finalGenero),
       pedigree: Math.random() > 0.3, // 70% têm pedigree
       fk_usuario_id: user.id,
-      fotos: JSON.stringify([`https://picsum.photos/seed/${nome}${i}/400/400`]),
+      fotos: JSON.stringify(getPetPhotoUrls(especie, i)),
       dados_saude: JSON.stringify({
         vacinado: true,
         castrado: false,
