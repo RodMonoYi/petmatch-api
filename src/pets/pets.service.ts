@@ -1,7 +1,14 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Pet } from '../entities/pet.entity';
+import { SavedPet } from '../entities/saved-pet.entity';
+import { Swipe } from '../entities/swipe.entity';
 import { CreatePetDto } from './dto/create-pet.dto';
 import { UpdatePetDto } from './dto/update-pet.dto';
 import { SearchPetsDto } from './dto/search-pets.dto';
@@ -12,6 +19,10 @@ type PetResponse = Omit<Pet, 'fotos' | 'dados_saude'> & {
   fotos: string[];
   dados_saude: any;
   distancia_km?: number | null;
+  curtidas_count: number;
+  curtido: boolean;
+  curtido_por_pet_ids: string[];
+  salvo: boolean;
 };
 
 @Injectable()
@@ -19,6 +30,10 @@ export class PetsService {
   constructor(
     @InjectRepository(Pet)
     private petRepository: Repository<Pet>,
+    @InjectRepository(SavedPet)
+    private savedPetRepository: Repository<SavedPet>,
+    @InjectRepository(Swipe)
+    private swipeRepository: Repository<Swipe>,
   ) {}
 
   private safeJsonParse<T>(jsonString: string | null | undefined, defaultValue: T): T {
@@ -35,7 +50,80 @@ export class PetsService {
       ...pet,
       fotos: this.safeJsonParse(pet.fotos, []),
       dados_saude: this.safeJsonParse(pet.dados_saude, null),
+      curtidas_count: 0,
+      curtido: false,
+      curtido_por_pet_ids: [],
+      salvo: false,
     } as PetResponse;
+  }
+
+  private async enrichPetsWithUserState(
+    pets: Array<PetResponse & { distancia_km?: number | null }>,
+    userId?: string,
+  ) {
+    const petIds = pets.map((pet) => pet.id);
+    if (petIds.length === 0) {
+      return pets;
+    }
+
+    const likeCountsRaw = await this.swipeRepository
+      .createQueryBuilder('swipe')
+      .select('swipe.fk_pet_id_2', 'petId')
+      .addSelect('COUNT(*)', 'count')
+      .where('swipe.fk_pet_id_2 IN (:...petIds)', { petIds })
+      .andWhere('swipe.action = :action', { action: 'like' })
+      .groupBy('swipe.fk_pet_id_2')
+      .getRawMany<{ petId: string; count: string }>();
+
+    const likeCounts = new Map(
+      likeCountsRaw.map((row) => [row.petId, Number(row.count)]),
+    );
+    const likedByPetIds = new Map<string, string[]>();
+    const savedPetIds = new Set<string>();
+
+    if (userId) {
+      const [userPets, savedPets] = await Promise.all([
+        this.petRepository.find({
+          where: { fk_usuario_id: userId },
+          select: ['id'],
+        }),
+        this.savedPetRepository.find({
+          where: {
+            fk_usuario_id: userId,
+            fk_pet_id: In(petIds),
+          },
+          select: ['fk_pet_id'],
+        }),
+      ]);
+
+      savedPets.forEach((savedPet) => savedPetIds.add(savedPet.fk_pet_id));
+
+      const userPetIds = userPets.map((pet) => pet.id);
+      if (userPetIds.length > 0) {
+        const likedSwipes = await this.swipeRepository
+          .createQueryBuilder('swipe')
+          .select('swipe.fk_pet_id_2', 'petId')
+          .addSelect('swipe.fk_pet_id_1', 'sourcePetId')
+          .where('swipe.fk_pet_id_1 IN (:...userPetIds)', { userPetIds })
+          .andWhere('swipe.fk_pet_id_2 IN (:...petIds)', { petIds })
+          .andWhere('swipe.action = :action', { action: 'like' })
+          .getRawMany<{ petId: string; sourcePetId: string }>();
+
+        likedSwipes.forEach((swipe) => {
+          const sourcePetIds = likedByPetIds.get(swipe.petId) || [];
+          sourcePetIds.push(swipe.sourcePetId);
+          likedByPetIds.set(swipe.petId, sourcePetIds);
+        });
+      }
+    }
+
+    return pets.map((pet) => ({
+      ...pet,
+      curtidas_count: likeCounts.get(pet.id) || 0,
+      curtido_por_pet_ids: likedByPetIds.get(pet.id) || [],
+      curtido: (likedByPetIds.get(pet.id) || []).length > 0,
+      salvo: savedPetIds.has(pet.id),
+    }));
   }
 
   async create(createPetDto: CreatePetDto, userId: string): Promise<PetResponse> {
@@ -49,10 +137,15 @@ export class PetsService {
     const pet = this.petRepository.create(petData);
     const savedPet = await this.petRepository.save(pet);
     
-    return this.transformPet(savedPet);
+    const [petWithState] = await this.enrichPetsWithUserState(
+      [this.transformPet(savedPet)],
+      userId,
+    );
+
+    return petWithState;
   }
 
-  async findAll(searchDto: SearchPetsDto) {
+  async findAll(searchDto: SearchPetsDto, userId?: string) {
     const {
       page = 1,
       limit = 10,
@@ -162,11 +255,13 @@ export class PetsService {
     const total = petsWithDistance.length;
     const paginatedPets = petsWithDistance.slice(skip, skip + limit);
 
-    return {
-      pets: paginatedPets.map(({ pet, distancia_km }) => ({
+    const transformedPets = paginatedPets.map(({ pet, distancia_km }) => ({
         ...this.transformPet(pet),
         distancia_km,
-      })),
+      }));
+
+    return {
+      pets: await this.enrichPetsWithUserState(transformedPets, userId),
       total,
       page,
       limit,
@@ -180,10 +275,13 @@ export class PetsService {
       relations: ['usuario'],
     });
 
-    return pets.map(pet => this.transformPet(pet));
+    return this.enrichPetsWithUserState(
+      pets.map((pet) => this.transformPet(pet)),
+      userId,
+    );
   }
 
-  async findOne(id: string): Promise<PetResponse> {
+  async findOne(id: string, userId?: string): Promise<PetResponse> {
     const pet = await this.petRepository.findOne({
       where: { id },
       relations: ['usuario'],
@@ -193,7 +291,12 @@ export class PetsService {
       throw new NotFoundException('Pet não encontrado');
     }
 
-    return this.transformPet(pet);
+    const [petWithState] = await this.enrichPetsWithUserState(
+      [this.transformPet(pet)],
+      userId,
+    );
+
+    return petWithState;
   }
 
   async update(id: string, updatePetDto: UpdatePetDto, userId: string): Promise<PetResponse> {
@@ -218,7 +321,73 @@ export class PetsService {
     Object.assign(pet, updateData);
     const updatedPet = await this.petRepository.save(pet);
 
-    return this.transformPet(updatedPet);
+    const [petWithState] = await this.enrichPetsWithUserState(
+      [this.transformPet(updatedPet)],
+      userId,
+    );
+
+    return petWithState;
+  }
+
+  async findSaved(userId: string): Promise<PetResponse[]> {
+    const savedPets = await this.savedPetRepository.find({
+      where: { fk_usuario_id: userId },
+      relations: ['pet', 'pet.usuario'],
+      order: { criado_em: 'DESC' },
+    });
+
+    return this.enrichPetsWithUserState(
+      savedPets.map((savedPet) => this.transformPet(savedPet.pet)),
+      userId,
+    );
+  }
+
+  async savePet(petId: string, userId: string) {
+    const pet = await this.petRepository.findOne({
+      where: { id: petId },
+      select: ['id', 'fk_usuario_id'],
+    });
+
+    if (!pet) {
+      throw new NotFoundException('Pet não encontrado');
+    }
+
+    if (pet.fk_usuario_id === userId) {
+      throw new BadRequestException('Não é possível salvar seu próprio pet');
+    }
+
+    const existingSavedPet = await this.savedPetRepository.findOne({
+      where: {
+        fk_usuario_id: userId,
+        fk_pet_id: petId,
+      },
+    });
+
+    if (!existingSavedPet) {
+      await this.savedPetRepository.save(
+        this.savedPetRepository.create({
+          fk_usuario_id: userId,
+          fk_pet_id: petId,
+        }),
+      );
+    }
+
+    return {
+      petId,
+      salvo: true,
+    };
+  }
+
+  async unsavePet(petId: string, userId: string) {
+    await this.savedPetRepository.delete({
+      fk_usuario_id: userId,
+      fk_pet_id: petId,
+    });
+
+    return {
+      petId,
+      salvo: false,
+    };
   }
 
   async remove(id: string, userId: string): Promise<void> {

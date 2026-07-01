@@ -13,6 +13,7 @@ import { Pet } from '../entities/pet.entity';
 import { User } from '../entities/user.entity';
 import { CreateMatchDto } from './dto/create-match.dto';
 import { calculateDistance, parseLocation } from '../common/utils/distance.util';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class MatchesService {
@@ -27,6 +28,7 @@ export class MatchesService {
     private petRepository: Repository<Pet>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private notificationsService: NotificationsService,
   ) {}
 
   private safeJsonParse<T>(jsonString: string | null | undefined, defaultValue: T): T {
@@ -107,7 +109,20 @@ export class MatchesService {
     });
 
     if (existingSwipe) {
-      throw new BadRequestException('Swipe já realizado para este pet');
+      const existingMatch = await this.matchRepository
+        .createQueryBuilder('match')
+        .where(
+          '(match.fk_pet_id_1 = :petId1 AND match.fk_pet_id_2 = :petId2) OR (match.fk_pet_id_1 = :petId2 AND match.fk_pet_id_2 = :petId1)',
+          { petId1, petId2: fk_pet_id_2 },
+        )
+        .getOne();
+
+      return {
+        swipe: existingSwipe,
+        match: existingMatch || undefined,
+        isMatch: Boolean(existingMatch),
+        alreadySwiped: true,
+      };
     }
 
     // Criar o swipe
@@ -162,7 +177,35 @@ export class MatchesService {
           fk_participante_2_id: pet2.fk_usuario_id,
         });
 
-        await this.conversationRepository.save(conversation);
+        const savedConversation =
+          await this.conversationRepository.save(conversation);
+
+        await Promise.all([
+          this.notificationsService.create({
+            userId: pet1.fk_usuario_id,
+            tipo: 'match',
+            titulo: 'Novo match',
+            mensagem: `${pet1.nome} e ${pet2.nome} deram match.`,
+            dados: {
+              matchId: savedMatch.id,
+              conversationId: savedConversation.id,
+              petId: pet2.id,
+              sourcePetId: pet2.id,
+            },
+          }),
+          this.notificationsService.create({
+            userId: pet2.fk_usuario_id,
+            tipo: 'match',
+            titulo: 'Novo match',
+            mensagem: `${pet2.nome} e ${pet1.nome} deram match.`,
+            dados: {
+              matchId: savedMatch.id,
+              conversationId: savedConversation.id,
+              petId: pet1.id,
+              sourcePetId: pet1.id,
+            },
+          }),
+        ]);
 
         return {
           swipe,
@@ -170,6 +213,17 @@ export class MatchesService {
           isMatch: true,
         };
       }
+
+      await this.notificationsService.create({
+        userId: pet2.fk_usuario_id,
+        tipo: 'like',
+        titulo: 'Novo interesse',
+        mensagem: `${pet1.nome} curtiu ${pet2.nome}.`,
+        dados: {
+          sourcePetId: pet1.id,
+          targetPetId: pet2.id,
+        },
+      });
     }
 
     return {
