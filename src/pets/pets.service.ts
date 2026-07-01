@@ -5,11 +5,13 @@ import { Pet } from '../entities/pet.entity';
 import { CreatePetDto } from './dto/create-pet.dto';
 import { UpdatePetDto } from './dto/update-pet.dto';
 import { SearchPetsDto } from './dto/search-pets.dto';
+import { calculateDistance, parseLocation } from '../common/utils/distance.util';
 
 // Tipo de resposta com campos parseados
 type PetResponse = Omit<Pet, 'fotos' | 'dados_saude'> & {
   fotos: string[];
   dados_saude: any;
+  distancia_km?: number | null;
 };
 
 @Injectable()
@@ -51,14 +53,25 @@ export class PetsService {
   }
 
   async findAll(searchDto: SearchPetsDto) {
-    const { page = 1, limit = 10, latitude, longitude, raio, ...filters } = searchDto;
+    const {
+      page = 1,
+      limit = 10,
+      latitude,
+      longitude,
+      raio,
+      idade_min,
+      idade_max,
+      pedigree,
+      vacinado,
+      disponivel_reproducao,
+      aceita_viagem,
+      ...filters
+    } = searchDto;
     const skip = (page - 1) * limit;
 
     let query = this.petRepository
       .createQueryBuilder('pet')
-      .leftJoinAndSelect('pet.usuario', 'usuario')
-      .skip(skip)
-      .take(limit);
+      .leftJoinAndSelect('pet.usuario', 'usuario');
 
     // Aplicar filtros
     if (filters.especie) {
@@ -77,10 +90,83 @@ export class PetsService {
       query = query.andWhere('pet.porte = :porte', { porte: filters.porte });
     }
 
-    const [pets, total] = await query.getManyAndCount();
+    if (typeof pedigree === 'boolean') {
+      query = query.andWhere('pet.pedigree = :pedigree', { pedigree });
+    }
+
+    if (typeof disponivel_reproducao === 'boolean') {
+      query = query.andWhere('pet.disponivel_reproducao = :disponivel_reproducao', {
+        disponivel_reproducao,
+      });
+    }
+
+    if (typeof aceita_viagem === 'boolean') {
+      query = query.andWhere('pet.aceita_viagem = :aceita_viagem', { aceita_viagem });
+    }
+
+    if (typeof vacinado === 'boolean') {
+      query = query.andWhere('pet.dados_saude LIKE :vacinado', {
+        vacinado: `%"vacinado":${vacinado}%`,
+      });
+    }
+
+    const now = new Date();
+    if (typeof idade_min === 'number') {
+      const maxBirthDate = new Date(now);
+      maxBirthDate.setFullYear(maxBirthDate.getFullYear() - idade_min);
+      query = query.andWhere('pet.data_nascimento <= :maxBirthDate', {
+        maxBirthDate: maxBirthDate.toISOString().split('T')[0],
+      });
+    }
+
+    if (typeof idade_max === 'number') {
+      const minBirthDate = new Date(now);
+      minBirthDate.setFullYear(minBirthDate.getFullYear() - idade_max - 1);
+      query = query.andWhere('pet.data_nascimento >= :minBirthDate', {
+        minBirthDate: minBirthDate.toISOString().split('T')[0],
+      });
+    }
+
+    let pets = await query.getMany();
+
+    const hasDistanceFilter =
+      typeof latitude === 'number' &&
+      typeof longitude === 'number' &&
+      typeof raio === 'number';
+
+    const petsWithDistance = pets
+      .map((pet) => {
+        let distancia_km: number | null = null;
+        const petLocation = parseLocation(pet.usuario?.localizacao_geo);
+
+        if (typeof latitude === 'number' && typeof longitude === 'number' && petLocation) {
+          distancia_km = calculateDistance(
+            latitude,
+            longitude,
+            petLocation.latitude,
+            petLocation.longitude,
+          );
+        }
+
+        return { pet, distancia_km };
+      })
+      .filter(({ distancia_km }) => {
+        if (!hasDistanceFilter) return true;
+        return distancia_km !== null && distancia_km <= raio;
+      })
+      .sort((a, b) => {
+        if (a.distancia_km === null || b.distancia_km === null) return 0;
+        return a.distancia_km - b.distancia_km;
+      });
+
+    const total = petsWithDistance.length;
+    const paginatedPets = petsWithDistance.slice(skip, skip + limit);
 
     return {
-      pets: pets.map(pet => this.transformPet(pet)),
+      pets: paginatedPets.map(({ pet, distancia_km }) => ({
+        ...this.transformPet(pet),
+        distancia_km,
+      })),
       total,
       page,
       limit,
@@ -151,4 +237,3 @@ export class PetsService {
     await this.petRepository.remove(pet);
   }
 }
-

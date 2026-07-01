@@ -226,6 +226,8 @@ export async function seedDatabase(dataSource: DataSource) {
       pedigree: boolean;
       fotos: string[];
       verificado_clinica: boolean;
+      disponivel_reproducao?: boolean;
+      aceita_viagem?: boolean;
     },
   ) => {
     const { fotos, ...petFields } = petData;
@@ -255,6 +257,8 @@ export async function seedDatabase(dataSource: DataSource) {
     pedigree: true,
     fotos: ['https://picsum.photos/seed/luna-golden/400/400'],
     verificado_clinica: true,
+    disponivel_reproducao: true,
+    aceita_viagem: true,
   });
 
   const thor = await createSeedPet(users[1], {
@@ -268,6 +272,8 @@ export async function seedDatabase(dataSource: DataSource) {
     pedigree: true,
     fotos: ['https://picsum.photos/seed/thor-golden/400/400'],
     verificado_clinica: true,
+    disponivel_reproducao: true,
+    aceita_viagem: false,
   });
 
   const mia = await createSeedPet(users[0], {
@@ -281,6 +287,8 @@ export async function seedDatabase(dataSource: DataSource) {
     pedigree: true,
     fotos: ['https://picsum.photos/seed/mia-persa/400/400'],
     verificado_clinica: true,
+    disponivel_reproducao: true,
+    aceita_viagem: false,
   });
 
   const simba = await createSeedPet(users[2], {
@@ -294,6 +302,8 @@ export async function seedDatabase(dataSource: DataSource) {
     pedigree: true,
     fotos: ['https://picsum.photos/seed/simba-persa/400/400'],
     verificado_clinica: true,
+    disponivel_reproducao: true,
+    aceita_viagem: true,
   });
 
   const bella = await createSeedPet(users[3], {
@@ -307,6 +317,8 @@ export async function seedDatabase(dataSource: DataSource) {
     pedigree: false,
     fotos: ['https://picsum.photos/seed/bella-poodle/400/400'],
     verificado_clinica: true,
+    disponivel_reproducao: true,
+    aceita_viagem: false,
   });
 
   const max = await createSeedPet(users[4], {
@@ -320,6 +332,8 @@ export async function seedDatabase(dataSource: DataSource) {
     pedigree: false,
     fotos: ['https://picsum.photos/seed/max-poodle/400/400'],
     verificado_clinica: false,
+    disponivel_reproducao: true,
+    aceita_viagem: true,
   });
 
   const randomPetsToCreate = totalPets - pets.length;
@@ -359,6 +373,8 @@ export async function seedDatabase(dataSource: DataSource) {
         ).toISOString(),
       }),
       verificado_clinica: Math.random() > 0.5, // 50% verificados
+      disponivel_reproducao: Math.random() > 0.15,
+      aceita_viagem: Math.random() > 0.65,
     };
 
     const pet = petRepository.create(petData);

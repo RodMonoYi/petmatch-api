@@ -39,5 +39,12 @@ export class CreatePetDto {
 
   @IsOptional()
   dados_saude?: any;
-}
 
+  @IsOptional()
+  @IsBoolean()
+  disponivel_reproducao?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  aceita_viagem?: boolean;
+}

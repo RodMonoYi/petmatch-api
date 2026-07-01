@@ -49,6 +49,12 @@ export class Pet {
   @Column({ default: false })
   verificado_clinica: boolean;
 
+  @Column({ default: true })
+  disponivel_reproducao: boolean;
+
+  @Column({ default: false })
+  aceita_viagem: boolean;
+
   @Column({ type: 'text', nullable: true })
   fk_clinica_verificadora_id: string;
 
@@ -71,4 +77,3 @@ export class Pet {
   @OneToMany(() => Match, (match) => match.pet2)
   matches_como_pet2: Match[];
 }
-

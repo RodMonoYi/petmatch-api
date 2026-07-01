@@ -31,6 +31,11 @@ export class MatchesController {
     return this.matchesService.findUserMatches(req.user.id);
   }
 
+  @Get('my-stats')
+  findMyStats(@Request() req) {
+    return this.matchesService.findUserStats(req.user.id);
+  }
+
   @Get('potential/:petId')
   getPotentialMatches(
     @Param('petId') petId: string,

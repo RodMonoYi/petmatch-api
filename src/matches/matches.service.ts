@@ -193,6 +193,48 @@ export class MatchesService {
     return matches.map((match) => this.transformMatch(match));
   }
 
+  async findUserStats(userId: string) {
+    const userPets = await this.petRepository.find({
+      where: { fk_usuario_id: userId },
+      select: ['id'],
+    });
+    const petIds = userPets.map((pet) => pet.id);
+
+    if (petIds.length === 0) {
+      return {
+        swipes: 0,
+        likes: 0,
+        matches: 0,
+      };
+    }
+
+    const [swipes, likes, matches] = await Promise.all([
+      this.swipeRepository
+        .createQueryBuilder('swipe')
+        .where('swipe.fk_pet_id_1 IN (:...petIds)', { petIds })
+        .getCount(),
+      this.swipeRepository
+        .createQueryBuilder('swipe')
+        .where('swipe.fk_pet_id_1 IN (:...petIds)', { petIds })
+        .andWhere('swipe.action = :action', { action: 'like' })
+        .getCount(),
+      this.matchRepository
+        .createQueryBuilder('match')
+        .where(
+          '(match.fk_pet_id_1 IN (:...petIds) OR match.fk_pet_id_2 IN (:...petIds))',
+          { petIds },
+        )
+        .andWhere('match.status = :status', { status: 'aceito' })
+        .getCount(),
+    ]);
+
+    return {
+      swipes,
+      likes,
+      matches,
+    };
+  }
+
   async findOne(id: string, userId: string) {
     const match = await this.matchRepository.findOne({
       where: { id },
