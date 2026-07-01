@@ -5,6 +5,7 @@ import { Match } from '../entities/match.entity';
 import { Conversation } from '../entities/conversation.entity';
 import { Message } from '../entities/message.entity';
 import { Swipe } from '../entities/swipe.entity';
+import { Notification } from '../entities/notification.entity';
 import * as bcrypt from 'bcrypt';
 
 // Coordenadas de bairros de São Paulo (latitude, longitude)
@@ -162,8 +163,10 @@ export async function seedDatabase(dataSource: DataSource) {
   const matchRepository = dataSource.getRepository(Match);
   const conversationRepository = dataSource.getRepository(Conversation);
   const messageRepository = dataSource.getRepository(Message);
+  const notificationRepository = dataSource.getRepository(Notification);
 
   // Limpar dados existentes
+  await notificationRepository.clear();
   await messageRepository.clear();
   await conversationRepository.clear();
   await matchRepository.clear();

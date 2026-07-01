@@ -8,6 +8,7 @@ import { UsersModule } from './users/users.module';
 import { PetsModule } from './pets/pets.module';
 import { MatchesModule } from './matches/matches.module';
 import { ChatModule } from './chat/chat.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -30,9 +31,9 @@ import { ChatModule } from './chat/chat.module';
     PetsModule,
     MatchesModule,
     ChatModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-

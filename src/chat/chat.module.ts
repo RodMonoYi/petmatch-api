@@ -7,10 +7,12 @@ import { ChatController } from './chat.controller';
 import { ChatGateway } from './chat.gateway';
 import { Message } from '../entities/message.entity';
 import { Conversation } from '../entities/conversation.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Message, Conversation]),
+    NotificationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -27,4 +29,3 @@ import { Conversation } from '../entities/conversation.entity';
   exports: [ChatService],
 })
 export class ChatModule {}
-

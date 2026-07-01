@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Message } from '../entities/message.entity';
 import { Conversation } from '../entities/conversation.entity';
 import { SendMessageDto } from './dto/send-message.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ChatService {
@@ -12,6 +13,7 @@ export class ChatService {
     private messageRepository: Repository<Message>,
     @InjectRepository(Conversation)
     private conversationRepository: Repository<Conversation>,
+    private notificationsService: NotificationsService,
   ) {}
 
   async getConversationForParticipant(conversationId: string, userId: string) {
@@ -36,7 +38,10 @@ export class ChatService {
   async sendMessage(sendMessageDto: SendMessageDto, userId: string) {
     const { conversationId, conteudo } = sendMessageDto;
 
-    await this.getConversationForParticipant(conversationId, userId);
+    const conversation = await this.getConversationForParticipant(
+      conversationId,
+      userId,
+    );
 
     // Criar mensagem
     const message = this.messageRepository.create({
@@ -45,7 +50,25 @@ export class ChatService {
       conteudo,
     });
 
-    return this.messageRepository.save(message);
+    const savedMessage = await this.messageRepository.save(message);
+    const recipientId =
+      conversation.fk_participante_1_id === userId
+        ? conversation.fk_participante_2_id
+        : conversation.fk_participante_1_id;
+
+    await this.notificationsService.create({
+      userId: recipientId,
+      tipo: 'message',
+      titulo: 'Nova mensagem',
+      mensagem: conteudo,
+      dados: {
+        messageId: savedMessage.id,
+        conversationId,
+        senderId: userId,
+      },
+    });
+
+    return savedMessage;
   }
 
   async getConversationMessages(conversationId: string, userId: string) {
