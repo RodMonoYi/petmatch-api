@@ -6,6 +6,7 @@ import { Conversation } from '../entities/conversation.entity';
 import { Message } from '../entities/message.entity';
 import { Swipe } from '../entities/swipe.entity';
 import { Notification } from '../entities/notification.entity';
+import { SavedPet } from '../entities/saved-pet.entity';
 import { seedDatabase } from './seed';
 
 const AppDataSource = new DataSource({
@@ -13,7 +14,16 @@ const AppDataSource = new DataSource({
   database: process.env.DATABASE_PATH || 'database.sqlite',
   synchronize: true,
   logging: false,
-  entities: [User, Pet, Match, Conversation, Message, Swipe, Notification],
+  entities: [
+    User,
+    Pet,
+    Match,
+    Conversation,
+    Message,
+    Swipe,
+    Notification,
+    SavedPet,
+  ],
 });
 
 async function runSeed() {

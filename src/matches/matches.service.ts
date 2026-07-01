@@ -109,7 +109,20 @@ export class MatchesService {
     });
 
     if (existingSwipe) {
-      throw new BadRequestException('Swipe já realizado para este pet');
+      const existingMatch = await this.matchRepository
+        .createQueryBuilder('match')
+        .where(
+          '(match.fk_pet_id_1 = :petId1 AND match.fk_pet_id_2 = :petId2) OR (match.fk_pet_id_1 = :petId2 AND match.fk_pet_id_2 = :petId1)',
+          { petId1, petId2: fk_pet_id_2 },
+        )
+        .getOne();
+
+      return {
+        swipe: existingSwipe,
+        match: existingMatch || undefined,
+        isMatch: Boolean(existingMatch),
+        alreadySwiped: true,
+      };
     }
 
     // Criar o swipe

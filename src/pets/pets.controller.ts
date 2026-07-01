@@ -27,8 +27,8 @@ export class PetsController {
   }
 
   @Get()
-  findAll(@Query() searchDto: SearchPetsDto) {
-    return this.petsService.findAll(searchDto);
+  findAll(@Query() searchDto: SearchPetsDto, @Request() req) {
+    return this.petsService.findAll(searchDto, req.user.id);
   }
 
   @Get('my-pets')
@@ -36,9 +36,24 @@ export class PetsController {
     return this.petsService.findMyPets(req.user.id);
   }
 
+  @Get('saved')
+  findSaved(@Request() req) {
+    return this.petsService.findSaved(req.user.id);
+  }
+
+  @Post(':id/save')
+  savePet(@Param('id') id: string, @Request() req) {
+    return this.petsService.savePet(id, req.user.id);
+  }
+
+  @Delete(':id/save')
+  unsavePet(@Param('id') id: string, @Request() req) {
+    return this.petsService.unsavePet(id, req.user.id);
+  }
+
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.petsService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req) {
+    return this.petsService.findOne(id, req.user.id);
   }
 
   @Patch(':id')
@@ -55,4 +70,3 @@ export class PetsController {
     return this.petsService.remove(id, req.user.id);
   }
 }
-
