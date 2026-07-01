@@ -166,6 +166,10 @@ export class PetsService {
       .createQueryBuilder('pet')
       .leftJoinAndSelect('pet.usuario', 'usuario');
 
+    if (userId) {
+      query = query.andWhere('pet.fk_usuario_id != :userId', { userId });
+    }
+
     // Aplicar filtros
     if (filters.especie) {
       query = query.andWhere('pet.especie = :especie', { especie: filters.especie });

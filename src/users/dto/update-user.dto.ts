@@ -15,6 +15,10 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsString()
+  foto_perfil_url?: string;
+
+  @IsOptional()
+  @IsString()
   localizacao_geo?: string; // JSON: { latitude: number, longitude: number }
 
   @IsOptional()
@@ -23,4 +27,3 @@ export class UpdateUserDto {
   @Max(100)
   raio_maximo?: number; // Alcance máximo em km (5, 10, 20, 50, 100)
 }
-

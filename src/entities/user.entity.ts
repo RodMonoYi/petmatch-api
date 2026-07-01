@@ -27,6 +27,9 @@ export class User {
   telefone: string;
 
   @Column({ type: 'text', nullable: true })
+  foto_perfil_url: string | null;
+
+  @Column({ type: 'text', nullable: true })
   localizacao_geo: string; // JSON: { latitude: number, longitude: number }
 
   @Column({ type: 'integer', default: 20, nullable: true })
@@ -44,4 +47,3 @@ export class User {
   @OneToMany(() => Message, (message) => message.remetente)
   mensagens: Message[];
 }
-

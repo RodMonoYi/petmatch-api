@@ -50,6 +50,11 @@ export class AuthService {
         nome: savedUser.nome,
         email: savedUser.email,
         telefone: savedUser.telefone,
+        foto_perfil_url: savedUser.foto_perfil_url,
+        localizacao_geo: savedUser.localizacao_geo,
+        raio_maximo: savedUser.raio_maximo,
+        criado_em: savedUser.criado_em,
+        atualizado_em: savedUser.atualizado_em,
       },
       ...tokens,
     };
@@ -83,6 +88,11 @@ export class AuthService {
         nome: user.nome,
         email: user.email,
         telefone: user.telefone,
+        foto_perfil_url: user.foto_perfil_url,
+        localizacao_geo: user.localizacao_geo,
+        raio_maximo: user.raio_maximo,
+        criado_em: user.criado_em,
+        atualizado_em: user.atualizado_em,
       },
       ...tokens,
     };
@@ -102,6 +112,11 @@ export class AuthService {
       nome: user.nome,
       email: user.email,
       telefone: user.telefone,
+      foto_perfil_url: user.foto_perfil_url,
+      localizacao_geo: user.localizacao_geo,
+      raio_maximo: user.raio_maximo,
+      criado_em: user.criado_em,
+      atualizado_em: user.atualizado_em,
     };
   }
 
@@ -119,4 +134,3 @@ export class AuthService {
     };
   }
 }
-
