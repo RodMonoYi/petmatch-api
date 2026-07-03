@@ -95,6 +95,10 @@ export class MatchesService {
       throw new NotFoundException('Pet não encontrado');
     }
 
+    if (!pet1.ativo || !pet2.ativo) {
+      throw new BadRequestException('Pets inativos não podem iniciar novas interações');
+    }
+
     if (pet1.fk_usuario_id !== userId) {
       throw new ForbiddenException('Você só pode fazer swipe com seus próprios pets');
     }
@@ -344,6 +348,10 @@ export class MatchesService {
       throw new NotFoundException('Pet não encontrado');
     }
 
+    if (!pet.ativo) {
+      throw new BadRequestException('Pets inativos não aparecem em novas buscas de match');
+    }
+
     if (pet.fk_usuario_id !== userId) {
       throw new ForbiddenException('Você só pode buscar matches para seus próprios pets');
     }
@@ -366,6 +374,7 @@ export class MatchesService {
       .createQueryBuilder('pet')
       .leftJoinAndSelect('pet.usuario', 'usuario')
       .where('pet.fk_usuario_id != :userId', { userId: pet.fk_usuario_id })
+      .andWhere('pet.ativo = :ativo', { ativo: true })
       .andWhere('pet.especie = :especie', { especie: pet.especie })
       .andWhere('usuario.localizacao_geo IS NOT NULL'); // Apenas usuários com localização
 

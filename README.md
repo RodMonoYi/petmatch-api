@@ -36,20 +36,20 @@ $ npm install
 Configure PostgreSQL:
 
 ```bash
-DATABASE_URL=postgres://petmatch:password@localhost:5432/petmatch
-DATABASE_SYNCHRONIZE=false
-DATABASE_MIGRATIONS_RUN=false
-NODE_ENV=production
-```
-
-Também é possível configurar sem `DATABASE_URL`:
-
-```bash
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_USERNAME=petmatch
-DATABASE_PASSWORD=password
+DATABASE_PASSWORD=petmatch
 DATABASE_NAME=petmatch
+DATABASE_SYNCHRONIZE=true
+DATABASE_MIGRATIONS_RUN=false
+NODE_ENV=development
+```
+
+Também é possível configurar com `DATABASE_URL`:
+
+```bash
+DATABASE_URL=postgres://petmatch:petmatch@localhost:5432/petmatch
 ```
 
 Use migrations para criar/atualizar o schema em PostgreSQL:

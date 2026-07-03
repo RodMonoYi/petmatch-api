@@ -60,6 +60,10 @@ export class Pet {
   @Column({ default: false })
   aceita_viagem: boolean;
 
+  @Index()
+  @Column({ default: true })
+  ativo: boolean;
+
   @Column({ type: 'text', nullable: true })
   fk_clinica_verificadora_id: string;
 

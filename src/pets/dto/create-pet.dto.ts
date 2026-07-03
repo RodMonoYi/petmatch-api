@@ -47,4 +47,8 @@ export class CreatePetDto {
   @IsOptional()
   @IsBoolean()
   aceita_viagem?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  ativo?: boolean;
 }

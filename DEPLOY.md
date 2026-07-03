@@ -16,7 +16,7 @@ docker compose up -d --build
 No `.env`, ajuste pelo menos:
 
 ```env
-APP_ORIGIN=https://seu-app.vercel.app
+CORS_ORIGIN=https://seu-app.vercel.app
 API_PORT=3000
 POSTGRES_PASSWORD=uma-senha-forte
 JWT_SECRET=um-segredo-forte

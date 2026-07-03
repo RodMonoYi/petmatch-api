@@ -41,6 +41,7 @@ export class CreateInitialPostgresSchema1783070000000
         "verificado_clinica" boolean NOT NULL DEFAULT false,
         "disponivel_reproducao" boolean NOT NULL DEFAULT true,
         "aceita_viagem" boolean NOT NULL DEFAULT false,
+        "ativo" boolean NOT NULL DEFAULT true,
         "fk_clinica_verificadora_id" text,
         "criado_em" timestamp with time zone NOT NULL DEFAULT now(),
         "atualizado_em" timestamp with time zone NOT NULL DEFAULT now(),
@@ -50,6 +51,9 @@ export class CreateInitialPostgresSchema1783070000000
     `);
     await queryRunner.query(
       'CREATE INDEX "IDX_pets_raca_normalizada" ON "pets" ("raca_normalizada")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX "IDX_pets_ativo" ON "pets" ("ativo")',
     );
 
     await queryRunner.query(`
@@ -138,6 +142,7 @@ export class CreateInitialPostgresSchema1783070000000
     await queryRunner.query('DROP TABLE IF EXISTS "conversas"');
     await queryRunner.query('DROP TABLE IF EXISTS "matches"');
     await queryRunner.query('DROP TABLE IF EXISTS "swipes"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_pets_ativo"');
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_pets_raca_normalizada"');
     await queryRunner.query('DROP TABLE IF EXISTS "pets"');
     await queryRunner.query('DROP TABLE IF EXISTS "usuarios"');

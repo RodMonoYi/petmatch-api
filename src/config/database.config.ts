@@ -10,6 +10,7 @@ import { Swipe } from '../entities/swipe.entity';
 import { Notification } from '../entities/notification.entity';
 import { SavedPet } from '../entities/saved-pet.entity';
 import { CreateInitialPostgresSchema1783070000000 } from '../migrations/1783070000000-CreateInitialPostgresSchema';
+import { AddPetActiveFlag1783071000000 } from '../migrations/1783071000000-AddPetActiveFlag';
 
 type EntityList = Array<Function | string | EntitySchema>;
 
@@ -28,7 +29,10 @@ export const databaseEntities: EntityList = [
   SavedPet,
 ];
 
-const postgresMigrations = [CreateInitialPostgresSchema1783070000000];
+const postgresMigrations = [
+  CreateInitialPostgresSchema1783070000000,
+  AddPetActiveFlag1783071000000,
+];
 
 const getBoolean = (
   value: string | boolean | undefined,
@@ -85,9 +89,18 @@ const buildDatabaseOptions = (
       : {
           host: config.get('DATABASE_HOST') || 'localhost',
           port: getNumber(config.get('DATABASE_PORT'), 5432),
-          username: config.get('DATABASE_USERNAME') || 'postgres',
-          password: config.get('DATABASE_PASSWORD') || 'password',
-          database: config.get('DATABASE_NAME') || 'petmatch',
+          username:
+            config.get('DATABASE_USERNAME') ||
+            config.get('POSTGRES_USER') ||
+            'postgres',
+          password:
+            config.get('DATABASE_PASSWORD') ||
+            config.get('POSTGRES_PASSWORD') ||
+            'password',
+          database:
+            config.get('DATABASE_NAME') ||
+            config.get('POSTGRES_DB') ||
+            'petmatch',
         }),
     ssl: getSslOptions(config),
     uuidExtension: 'pgcrypto',

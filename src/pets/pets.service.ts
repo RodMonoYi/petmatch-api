@@ -5,10 +5,16 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { promises as fs } from 'fs';
+import * as path from 'path';
+import { DataSource, In, Repository } from 'typeorm';
 import { Pet } from '../entities/pet.entity';
 import { SavedPet } from '../entities/saved-pet.entity';
 import { Swipe } from '../entities/swipe.entity';
+import { Match } from '../entities/match.entity';
+import { Conversation } from '../entities/conversation.entity';
+import { Message } from '../entities/message.entity';
+import { Notification } from '../entities/notification.entity';
 import { CreatePetDto } from './dto/create-pet.dto';
 import { UpdatePetDto } from './dto/update-pet.dto';
 import { SearchPetsDto } from './dto/search-pets.dto';
@@ -38,6 +44,7 @@ export class PetsService {
     private savedPetRepository: Repository<SavedPet>,
     @InjectRepository(Swipe)
     private swipeRepository: Repository<Swipe>,
+    private dataSource: DataSource,
   ) {}
 
   private safeJsonParse<T>(jsonString: string | null | undefined, defaultValue: T): T {
@@ -47,6 +54,32 @@ export class PetsService {
     } catch (error) {
       return defaultValue;
     }
+  }
+
+  private getLocalPetPhotoPath(photoUrl: string): string | null {
+    if (!photoUrl.startsWith('/uploads/pet-photos/')) {
+      return null;
+    }
+
+    const filename = path.basename(photoUrl);
+    return path.join(process.cwd(), 'public', 'uploads', 'pet-photos', filename);
+  }
+
+  private async removeLocalPetPhotos(photoUrls: string[]) {
+    await Promise.all(
+      photoUrls.map(async (photoUrl) => {
+        const filePath = this.getLocalPetPhotoPath(photoUrl);
+        if (!filePath) return;
+
+        try {
+          await fs.unlink(filePath);
+        } catch (error: any) {
+          if (error?.code !== 'ENOENT') {
+            console.error('Erro ao remover foto do pet:', error);
+          }
+        }
+      }),
+    );
   }
 
   private transformPet(pet: Pet): PetResponse {
@@ -179,7 +212,8 @@ export class PetsService {
 
     let query = this.petRepository
       .createQueryBuilder('pet')
-      .leftJoinAndSelect('pet.usuario', 'usuario');
+      .leftJoinAndSelect('pet.usuario', 'usuario')
+      .where('pet.ativo = :ativo', { ativo: true });
 
     if (userId) {
       query = query.andWhere('pet.fk_usuario_id != :userId', { userId });
@@ -319,6 +353,10 @@ export class PetsService {
       throw new NotFoundException('Pet não encontrado');
     }
 
+    if (pet.ativo === false && pet.fk_usuario_id !== userId) {
+      throw new NotFoundException('Pet não encontrado');
+    }
+
     const [petWithState] = await this.enrichPetsWithUserState(
       [this.transformPet(pet)],
       userId,
@@ -374,7 +412,9 @@ export class PetsService {
     });
 
     return this.enrichPetsWithUserState(
-      savedPets.map((savedPet) => this.transformPet(savedPet.pet)),
+      savedPets
+        .filter((savedPet) => savedPet.pet?.ativo !== false)
+        .map((savedPet) => this.transformPet(savedPet.pet)),
       userId,
     );
   }
@@ -382,7 +422,7 @@ export class PetsService {
   async savePet(petId: string, userId: string) {
     const pet = await this.petRepository.findOne({
       where: { id: petId },
-      select: ['id', 'fk_usuario_id'],
+      select: ['id', 'fk_usuario_id', 'ativo'],
     });
 
     if (!pet) {
@@ -391,6 +431,10 @@ export class PetsService {
 
     if (pet.fk_usuario_id === userId) {
       throw new BadRequestException('Não é possível salvar seu próprio pet');
+    }
+
+    if (!pet.ativo) {
+      throw new BadRequestException('Não é possível salvar um pet inativo');
     }
 
     const existingSavedPet = await this.savedPetRepository.findOne({
@@ -440,6 +484,86 @@ export class PetsService {
       throw new ForbiddenException('Você não tem permissão para excluir este pet');
     }
 
-    await this.petRepository.remove(pet);
+    const petPhotoUrls = this.safeJsonParse<string[]>(pet.fotos, []);
+
+    await this.dataSource.transaction(async (manager) => {
+      const matchRows = await manager
+        .getRepository(Match)
+        .createQueryBuilder('match')
+        .select('match.id', 'id')
+        .where('match.fk_pet_id_1 = :id OR match.fk_pet_id_2 = :id', { id })
+        .getRawMany<{ id: string }>();
+      const matchIds = matchRows.map((match) => match.id);
+
+      const conversationRows = matchIds.length
+        ? await manager
+            .getRepository(Conversation)
+            .createQueryBuilder('conversation')
+            .select('conversation.id', 'id')
+            .where('conversation.fk_match_id IN (:...matchIds)', { matchIds })
+            .getRawMany<{ id: string }>()
+        : [];
+      const conversationIds = conversationRows.map((conversation) => conversation.id);
+
+      const notificationPatterns = [
+        `%${id}%`,
+        ...matchIds.map((matchId) => `%${matchId}%`),
+        ...conversationIds.map((conversationId) => `%${conversationId}%`),
+      ];
+
+      await manager
+        .getRepository(Notification)
+        .createQueryBuilder()
+        .delete()
+        .where(notificationPatterns.map((_, index) => `dados LIKE :pattern${index}`).join(' OR '), {
+          ...Object.fromEntries(
+            notificationPatterns.map((pattern, index) => [`pattern${index}`, pattern]),
+          ),
+        })
+        .execute();
+
+      if (conversationIds.length > 0) {
+        await manager
+          .getRepository(Message)
+          .createQueryBuilder()
+          .delete()
+          .where('fk_conversa_id IN (:...conversationIds)', { conversationIds })
+          .execute();
+
+        await manager
+          .getRepository(Conversation)
+          .createQueryBuilder()
+          .delete()
+          .where('id IN (:...conversationIds)', { conversationIds })
+          .execute();
+      }
+
+      if (matchIds.length > 0) {
+        await manager
+          .getRepository(Match)
+          .createQueryBuilder()
+          .delete()
+          .where('id IN (:...matchIds)', { matchIds })
+          .execute();
+      }
+
+      await manager
+        .getRepository(SavedPet)
+        .createQueryBuilder()
+        .delete()
+        .where('fk_pet_id = :id', { id })
+        .execute();
+
+      await manager
+        .getRepository(Swipe)
+        .createQueryBuilder()
+        .delete()
+        .where('fk_pet_id_1 = :id OR fk_pet_id_2 = :id', { id })
+        .execute();
+
+      await manager.getRepository(Pet).delete({ id });
+    });
+
+    await this.removeLocalPetPhotos(petPhotoUrls);
   }
 }
