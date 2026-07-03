@@ -11,6 +11,8 @@ RUN npm ci
 
 COPY . .
 RUN npm run build
+
+FROM builder AS production-deps
 RUN npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runner
@@ -18,11 +20,11 @@ FROM node:22-bookworm-slim AS runner
 ENV NODE_ENV=production
 WORKDIR /app
 
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=production-deps /app/package*.json ./
+COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 
-RUN mkdir -p /app/public/uploads/profile-photos
+RUN mkdir -p /app/public/uploads/profile-photos /app/public/uploads/pet-photos
 
 EXPOSE 3000
 

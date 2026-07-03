@@ -65,6 +65,14 @@ Para atualizar depois de um `git pull`:
 docker compose up -d --build
 ```
 
+Para rodar o seed na VM:
+
+```bash
+docker compose --profile tools run --rm seed
+```
+
+O seed limpa os dados atuais e recria os registros de teste.
+
 Para parar sem apagar dados:
 
 ```bash

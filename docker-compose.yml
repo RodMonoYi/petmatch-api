@@ -42,6 +42,31 @@ services:
     ports:
       - "${API_PORT:-3000}:3000"
 
+  seed:
+    build:
+      context: .
+      target: builder
+    profiles:
+      - tools
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: ${POSTGRES_USER:-petmatch}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      DATABASE_NAME: ${POSTGRES_DB:-petmatch}
+      DATABASE_SYNCHRONIZE: "false"
+      DATABASE_MIGRATIONS_RUN: "false"
+      DATABASE_LOGGING: ${DATABASE_LOGGING:-false}
+      JWT_SECRET: ${JWT_SECRET:-change-this-jwt-secret}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-this-refresh-secret}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
+    command: sh -c "npm run migration:run && npm run seed"
+
 volumes:
   postgres_data:
   api_uploads:
