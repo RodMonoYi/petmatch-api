@@ -9,6 +9,7 @@ import { PetsModule } from './pets/pets.module';
 import { MatchesModule } from './matches/matches.module';
 import { ChatModule } from './chat/chat.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { createTypeOrmOptions } from './config/database.config';
 
 @Module({
   imports: [
@@ -17,13 +18,8 @@ import { NotificationsModule } from './notifications/notifications.module';
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'sqlite',
-        database: configService.get('DATABASE_PATH') || 'database.sqlite',
-        autoLoadEntities: true,
-        synchronize: true, // Apenas para desenvolvimento
-        logging: false,
-      }),
+      useFactory: (configService: ConfigService) =>
+        createTypeOrmOptions(configService),
       inject: [ConfigService],
     }),
     AuthModule,

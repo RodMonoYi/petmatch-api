@@ -13,6 +13,10 @@ import { CreatePetDto } from './dto/create-pet.dto';
 import { UpdatePetDto } from './dto/update-pet.dto';
 import { SearchPetsDto } from './dto/search-pets.dto';
 import { calculateDistance, parseLocation } from '../common/utils/distance.util';
+import {
+  getBreedComparisonKey,
+  getCanonicalBreedKey,
+} from '../common/pets/breed-normalization.util';
 
 // Tipo de resposta com campos parseados
 type PetResponse = Omit<Pet, 'fotos' | 'dados_saude'> & {
@@ -48,6 +52,7 @@ export class PetsService {
   private transformPet(pet: Pet): PetResponse {
     return {
       ...pet,
+      raca_normalizada: getBreedComparisonKey(pet.raca, pet.raca_normalizada),
       fotos: this.safeJsonParse(pet.fotos, []),
       dados_saude: this.safeJsonParse(pet.dados_saude, null),
       curtidas_count: 0,
@@ -127,8 +132,15 @@ export class PetsService {
   }
 
   async create(createPetDto: CreatePetDto, userId: string): Promise<PetResponse> {
+    const normalizedBreed = getCanonicalBreedKey(createPetDto.raca);
+    if (!normalizedBreed) {
+      throw new BadRequestException('Raça do pet é obrigatória');
+    }
+
     const petData = {
       ...createPetDto,
+      raca: createPetDto.raca.trim(),
+      raca_normalizada: normalizedBreed,
       fk_usuario_id: userId,
       fotos: createPetDto.fotos ? JSON.stringify(createPetDto.fotos) : undefined,
       dados_saude: createPetDto.dados_saude ? JSON.stringify(createPetDto.dados_saude) : undefined,
@@ -161,6 +173,9 @@ export class PetsService {
       ...filters
     } = searchDto;
     const skip = (page - 1) * limit;
+    const normalizedBreedFilter = filters.raca
+      ? getCanonicalBreedKey(filters.raca)
+      : '';
 
     let query = this.petRepository
       .createQueryBuilder('pet')
@@ -175,8 +190,11 @@ export class PetsService {
       query = query.andWhere('pet.especie = :especie', { especie: filters.especie });
     }
 
-    if (filters.raca) {
-      query = query.andWhere('pet.raca = :raca', { raca: filters.raca });
+    if (normalizedBreedFilter) {
+      query = query.andWhere(
+        '(pet.raca_normalizada = :racaNormalizada OR pet.raca_normalizada IS NULL OR pet.raca_normalizada = :emptyBreed)',
+        { racaNormalizada: normalizedBreedFilter, emptyBreed: '' },
+      );
     }
 
     if (filters.genero) {
@@ -225,6 +243,12 @@ export class PetsService {
     }
 
     let pets = await query.getMany();
+
+    if (normalizedBreedFilter) {
+      pets = pets.filter((pet) => (
+        getBreedComparisonKey(pet.raca, pet.raca_normalizada) === normalizedBreedFilter
+      ));
+    }
 
     const hasDistanceFilter =
       typeof latitude === 'number' &&
@@ -316,8 +340,17 @@ export class PetsService {
       throw new ForbiddenException('Você não tem permissão para editar este pet');
     }
 
+    const normalizedBreed = updatePetDto.raca !== undefined
+      ? getCanonicalBreedKey(updatePetDto.raca)
+      : undefined;
+    if (updatePetDto.raca !== undefined && !normalizedBreed) {
+      throw new BadRequestException('Raça do pet é obrigatória');
+    }
+
     const updateData = {
       ...updatePetDto,
+      raca: updatePetDto.raca !== undefined ? updatePetDto.raca.trim() : pet.raca,
+      raca_normalizada: normalizedBreed ?? pet.raca_normalizada,
       fotos: updatePetDto.fotos ? JSON.stringify(updatePetDto.fotos) : pet.fotos,
       dados_saude: updatePetDto.dados_saude ? JSON.stringify(updatePetDto.dados_saude) : pet.dados_saude,
     };

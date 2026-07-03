@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   ManyToOne,
   JoinColumn,
   OneToMany,
@@ -24,6 +25,10 @@ export class Pet {
 
   @Column({ length: 100 })
   raca: string;
+
+  @Index()
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  raca_normalizada?: string | null;
 
   @Column({ type: 'date' })
   data_nascimento: Date;
@@ -68,7 +73,7 @@ export class Pet {
   @JoinColumn({ name: 'fk_usuario_id' })
   usuario: User;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_usuario_id: string;
 
   @OneToMany(() => Match, (match) => match.pet1)

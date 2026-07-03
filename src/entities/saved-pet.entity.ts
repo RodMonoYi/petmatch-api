@@ -23,13 +23,13 @@ export class SavedPet {
   @JoinColumn({ name: 'fk_usuario_id' })
   usuario: User;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_usuario_id: string;
 
   @ManyToOne(() => Pet)
   @JoinColumn({ name: 'fk_pet_id' })
   pet: Pet;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_pet_id: string;
 }

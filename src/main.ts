@@ -2,15 +2,19 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import {
+  getCorsOrigin,
+  shouldEnableCorsCredentials,
+} from './config/cors.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Configurar CORS
   app.enableCors({
-    origin: '*',
+    origin: getCorsOrigin(),
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
+    credentials: shouldEnableCorsCredentials(),
   });
 
   // Configurar validação global
@@ -43,4 +47,3 @@ async function bootstrap() {
   console.log(`📚 Documentação disponível em http://localhost:${port}/api/docs`);
 }
 bootstrap();
-

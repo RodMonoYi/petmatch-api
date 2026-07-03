@@ -25,14 +25,13 @@ export class Swipe {
   @JoinColumn({ name: 'fk_pet_id_1' })
   pet1: Pet;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_pet_id_1: string; // Pet que fez o swipe
 
   @ManyToOne(() => Pet)
   @JoinColumn({ name: 'fk_pet_id_2' })
   pet2: Pet;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_pet_id_2: string; // Pet que recebeu o swipe
 }
-

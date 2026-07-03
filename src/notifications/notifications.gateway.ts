@@ -7,10 +7,15 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { Notification } from '../entities/notification.entity';
+import {
+  getCorsOrigin,
+  shouldEnableCorsCredentials,
+} from '../config/cors.config';
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: getCorsOrigin(),
+    credentials: shouldEnableCorsCredentials(),
   },
 })
 export class NotificationsGateway

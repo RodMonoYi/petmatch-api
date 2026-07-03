@@ -24,24 +24,23 @@ export class Conversation {
   @JoinColumn({ name: 'fk_match_id' })
   match: Match;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_match_id: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'fk_participante_1_id' })
   participante1: User;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_participante_1_id: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'fk_participante_2_id' })
   participante2: User;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_participante_2_id: string;
 
   @OneToMany(() => Message, (message) => message.conversa)
   mensagens: Message[];
 }
-

@@ -12,10 +12,15 @@ import { UseGuards } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { JwtService } from '@nestjs/jwt';
+import {
+  getCorsOrigin,
+  shouldEnableCorsCredentials,
+} from '../config/cors.config';
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: getCorsOrigin(),
+    credentials: shouldEnableCorsCredentials(),
   },
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {

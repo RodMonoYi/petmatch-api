@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { Pet } from '../entities/pet.entity';
 import { Match } from '../entities/match.entity';
@@ -8,6 +8,11 @@ import { Swipe } from '../entities/swipe.entity';
 import { Notification } from '../entities/notification.entity';
 import { SavedPet } from '../entities/saved-pet.entity';
 import * as bcrypt from 'bcrypt';
+import { getCanonicalBreedKey } from '../common/pets/breed-normalization.util';
+
+const deleteAll = async <T extends object>(repository: Repository<T>) => {
+  await repository.createQueryBuilder().delete().execute();
+};
 
 // Coordenadas de bairros de São Paulo (latitude, longitude)
 const SP_LOCATIONS = [
@@ -37,6 +42,7 @@ const SP_LOCATIONS = [
 const RACAS_CAES = [
   'Golden Retriever',
   'Labrador',
+  'Dálmata',
   'Bulldog Francês',
   'Poodle',
   'Shih Tzu',
@@ -49,7 +55,7 @@ const RACAS_CAES = [
   'Bulldog Inglês',
   'Chihuahua',
   'Pug',
-  'Dachshund',
+  'Salsicha',
   'Cocker Spaniel',
   'Boxer',
   'Doberman',
@@ -168,14 +174,14 @@ export async function seedDatabase(dataSource: DataSource) {
   const savedPetRepository = dataSource.getRepository(SavedPet);
 
   // Limpar dados existentes
-  await notificationRepository.clear();
-  await savedPetRepository.clear();
-  await messageRepository.clear();
-  await conversationRepository.clear();
-  await matchRepository.clear();
-  await swipeRepository.clear();
-  await petRepository.clear();
-  await userRepository.clear();
+  await deleteAll(notificationRepository);
+  await deleteAll(savedPetRepository);
+  await deleteAll(messageRepository);
+  await deleteAll(conversationRepository);
+  await deleteAll(matchRepository);
+  await deleteAll(swipeRepository);
+  await deleteAll(petRepository);
+  await deleteAll(userRepository);
 
   console.log('🌱 Iniciando seed do banco de dados...');
 
@@ -239,6 +245,7 @@ export async function seedDatabase(dataSource: DataSource) {
     const { fotos, ...petFields } = petData;
     const pet = petRepository.create({
       ...petFields,
+      raca_normalizada: getCanonicalBreedKey(petFields.raca),
       fk_usuario_id: user.id,
       fotos: JSON.stringify(fotos),
       dados_saude: JSON.stringify({
@@ -342,6 +349,36 @@ export async function seedDatabase(dataSource: DataSource) {
     aceita_viagem: true,
   });
 
+  const nina = await createSeedPet(users[5], {
+    nome: 'Nina Dálmata',
+    especie: 'Cão',
+    raca: 'Dálmata',
+    data_nascimento: new Date('2022-04-07'),
+    genero: 'Fêmea',
+    porte: 'Médio',
+    descricao: 'Dálmata ativa, sociável e com check-up recente.',
+    pedigree: true,
+    fotos: ['https://picsum.photos/seed/nina-dalmata/400/400'],
+    verificado_clinica: true,
+    disponivel_reproducao: true,
+    aceita_viagem: true,
+  });
+
+  const apollo = await createSeedPet(users[6], {
+    nome: 'Apollo Dalmata',
+    especie: 'Cão',
+    raca: 'dalmata',
+    data_nascimento: new Date('2021-10-12'),
+    genero: 'Macho',
+    porte: 'Médio',
+    descricao: 'Dalmata equilibrado, vacinado e acostumado com outros cães.',
+    pedigree: true,
+    fotos: ['https://picsum.photos/seed/apollo-dalmata/400/400'],
+    verificado_clinica: true,
+    disponivel_reproducao: true,
+    aceita_viagem: false,
+  });
+
   const randomPetsToCreate = totalPets - pets.length;
 
   for (let i = 0; i < randomPetsToCreate; i++) {
@@ -364,6 +401,7 @@ export async function seedDatabase(dataSource: DataSource) {
       nome,
       especie,
       raca,
+      raca_normalizada: getCanonicalBreedKey(raca),
       data_nascimento: randomBirthDate(),
       genero: finalGenero,
       porte,
@@ -493,6 +531,23 @@ export async function seedDatabase(dataSource: DataSource) {
         sender: 'pet1',
         conteudo:
           'Vamos combinar uma chamada para conversar melhor sobre os cuidados?',
+      },
+    ]),
+    await createSeedMatch(nina, apollo, [
+      {
+        sender: 'pet1',
+        conteudo:
+          'Oi! Cadastrei a Nina como Dálmata com acento e vi que o Apollo apareceu como compatível.',
+      },
+      {
+        sender: 'pet2',
+        conteudo:
+          'Funcionou bem por aqui também. A grafia dele está como dalmata, sem acento.',
+      },
+      {
+        sender: 'pet1',
+        conteudo:
+          'Ótimo, assim a busca não perde perfis compatíveis por causa da escrita.',
       },
     ]),
   ];

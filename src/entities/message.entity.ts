@@ -24,14 +24,13 @@ export class Message {
   @JoinColumn({ name: 'fk_conversa_id' })
   conversa: Conversation;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_conversa_id: string;
 
   @ManyToOne(() => User, (user) => user.mensagens)
   @JoinColumn({ name: 'fk_remetente_id' })
   remetente: User;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_remetente_id: string;
 }
-

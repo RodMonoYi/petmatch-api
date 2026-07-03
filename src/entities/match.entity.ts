@@ -25,17 +25,16 @@ export class Match {
   @JoinColumn({ name: 'fk_pet_id_1' })
   pet1: Pet;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_pet_id_1: string;
 
   @ManyToOne(() => Pet, (pet) => pet.matches_como_pet2)
   @JoinColumn({ name: 'fk_pet_id_2' })
   pet2: Pet;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_pet_id_2: string;
 
   @OneToOne(() => Conversation, (conversation) => conversation.match)
   conversa: Conversation;
 }
-

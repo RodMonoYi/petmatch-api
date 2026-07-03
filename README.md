@@ -31,6 +31,48 @@
 $ npm install
 ```
 
+## Database
+
+Configure PostgreSQL:
+
+```bash
+DATABASE_URL=postgres://petmatch:password@localhost:5432/petmatch
+DATABASE_SYNCHRONIZE=false
+DATABASE_MIGRATIONS_RUN=false
+NODE_ENV=production
+```
+
+Também é possível configurar sem `DATABASE_URL`:
+
+```bash
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USERNAME=petmatch
+DATABASE_PASSWORD=password
+DATABASE_NAME=petmatch
+```
+
+Use migrations para criar/atualizar o schema em PostgreSQL:
+
+```bash
+$ npm run migration:run
+```
+
+Se quiser aplicar migrations automaticamente ao iniciar a API:
+
+```bash
+DATABASE_MIGRATIONS_RUN=true
+```
+
+Use `DATABASE_SYNCHRONIZE=true` apenas em ambiente controlado de desenvolvimento.
+Para produção, mantenha `DATABASE_SYNCHRONIZE=false`.
+
+Para popular dados de teste no banco configurado:
+
+```bash
+$ npm run seed
+```
+
 ## Compile and run the project
 
 ```bash

@@ -14,6 +14,10 @@ import { User } from '../entities/user.entity';
 import { CreateMatchDto } from './dto/create-match.dto';
 import { calculateDistance, parseLocation } from '../common/utils/distance.util';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  areBreedKeysCompatible,
+  getBreedComparisonKey,
+} from '../common/pets/breed-normalization.util';
 
 @Injectable()
 export class MatchesService {
@@ -43,6 +47,7 @@ export class MatchesService {
   private transformPet(pet: Pet): any {
     return {
       ...pet,
+      raca_normalizada: getBreedComparisonKey(pet.raca, pet.raca_normalizada),
       fotos: this.safeJsonParse(pet.fotos, []),
       dados_saude: this.safeJsonParse(pet.dados_saude, null),
     };
@@ -63,6 +68,12 @@ export class MatchesService {
 
     if (pet1.genero === pet2.genero) {
       throw new BadRequestException('Para reprodução, os pets precisam ter gêneros opostos');
+    }
+
+    const pet1BreedKey = getBreedComparisonKey(pet1.raca, pet1.raca_normalizada);
+    const pet2BreedKey = getBreedComparisonKey(pet2.raca, pet2.raca_normalizada);
+    if (!areBreedKeysCompatible(pet1BreedKey, pet2BreedKey)) {
+      throw new BadRequestException('Pets de raças diferentes não podem dar match');
     }
   }
 
@@ -349,6 +360,7 @@ export class MatchesService {
     // Parse localização do dono do pet
     const ownerLocation = parseLocation(petOwner.localizacao_geo);
     const maxRange = petOwner.raio_maximo || 20; // Default 20km
+    const sourceBreedKey = getBreedComparisonKey(pet.raca, pet.raca_normalizada);
 
     let query = this.petRepository
       .createQueryBuilder('pet')
@@ -356,6 +368,13 @@ export class MatchesService {
       .where('pet.fk_usuario_id != :userId', { userId: pet.fk_usuario_id })
       .andWhere('pet.especie = :especie', { especie: pet.especie })
       .andWhere('usuario.localizacao_geo IS NOT NULL'); // Apenas usuários com localização
+
+    if (sourceBreedKey) {
+      query = query.andWhere(
+        '(pet.raca_normalizada = :racaNormalizada OR pet.raca_normalizada IS NULL OR pet.raca_normalizada = :emptyBreed)',
+        { racaNormalizada: sourceBreedKey, emptyBreed: '' },
+      );
+    }
 
     // Excluir pets que já receberam swipe (se houver algum)
     if (excludeIds.length > 1) {
@@ -369,7 +388,12 @@ export class MatchesService {
       query = query.andWhere('pet.genero = :genero', { genero: 'Macho' });
     }
 
-    const pets = await query.getMany();
+    const pets = (await query.getMany()).filter((candidatePet) => (
+      areBreedKeysCompatible(
+        sourceBreedKey,
+        getBreedComparisonKey(candidatePet.raca, candidatePet.raca_normalizada),
+      )
+    ));
 
     // Filtrar por distância se o dono do pet tiver localização
     let filteredPets = pets;

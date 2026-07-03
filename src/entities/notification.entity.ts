@@ -33,13 +33,13 @@ export class Notification {
   @CreateDateColumn()
   criado_em: Date;
 
-  @Column({ type: 'datetime', nullable: true })
-  lida_em: Date | null;
+  @Column({ nullable: true })
+  lida_em: Date;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'fk_usuario_id' })
   usuario: User;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'uuid' })
   fk_usuario_id: string;
 }

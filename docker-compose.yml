@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-petmatch}
+      POSTGRES_USER: ${POSTGRES_USER:-petmatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: ${POSTGRES_USER:-petmatch}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      DATABASE_NAME: ${POSTGRES_DB:-petmatch}
+      DATABASE_SYNCHRONIZE: "false"
+      DATABASE_MIGRATIONS_RUN: "true"
+      DATABASE_LOGGING: ${DATABASE_LOGGING:-false}
+      JWT_SECRET: ${JWT_SECRET:-change-this-jwt-secret}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-this-refresh-secret}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
+      CORS_ORIGIN: ${APP_ORIGIN:-http://localhost}
+    volumes:
+      - api_uploads:/app/public/uploads
+    ports:
+      - "${API_PORT:-3000}:3000"
+
+volumes:
+  postgres_data:
+  api_uploads:
