@@ -18,6 +18,7 @@ import {
   areBreedKeysCompatible,
   getBreedComparisonKey,
 } from '../common/pets/breed-normalization.util';
+import { serializeUserForResponse } from '../common/users/user-response.util';
 
 @Injectable()
 export class MatchesService {
@@ -47,6 +48,7 @@ export class MatchesService {
   private transformPet(pet: Pet): any {
     return {
       ...pet,
+      usuario: serializeUserForResponse(pet.usuario),
       raca_normalizada: getBreedComparisonKey(pet.raca, pet.raca_normalizada),
       fotos: this.safeJsonParse(pet.fotos, []),
       dados_saude: this.safeJsonParse(pet.dados_saude, null),
@@ -463,6 +465,7 @@ export class MatchesService {
 
         return {
           ...p,
+          usuario: serializeUserForResponse(p.usuario),
           fotos: p.fotos ? JSON.parse(p.fotos) : [],
           dados_saude: p.dados_saude ? JSON.parse(p.dados_saude) : null,
           distancia_km: distance,
@@ -470,6 +473,7 @@ export class MatchesService {
       } catch (error) {
         return {
           ...p,
+          usuario: serializeUserForResponse(p.usuario),
           fotos: [],
           dados_saude: null,
           distancia_km: null,

@@ -9,8 +9,15 @@ import { Message } from '../entities/message.entity';
 import { Swipe } from '../entities/swipe.entity';
 import { Notification } from '../entities/notification.entity';
 import { SavedPet } from '../entities/saved-pet.entity';
+import { AdCompetitionGroup } from '../entities/ad-competition-group.entity';
+import { AdPlacement } from '../entities/ad-placement.entity';
+import { Ad } from '../entities/ad.entity';
+import { AdDelivery } from '../entities/ad-delivery.entity';
 import { CreateInitialPostgresSchema1783070000000 } from '../migrations/1783070000000-CreateInitialPostgresSchema';
 import { AddPetActiveFlag1783071000000 } from '../migrations/1783071000000-AddPetActiveFlag';
+import { AddUserRolesAndAds1783600000000 } from '../migrations/1783600000000-AddUserRolesAndAds';
+import { RestructureAdsPlacementsAndCompetitionGroups1783601000000 } from '../migrations/1783601000000-RestructureAdsPlacementsAndCompetitionGroups';
+import { AddAdCreativeDisplayFields1783602000000 } from '../migrations/1783602000000-AddAdCreativeDisplayFields';
 
 type EntityList = Array<Function | string | EntitySchema>;
 
@@ -27,11 +34,18 @@ export const databaseEntities: EntityList = [
   Swipe,
   Notification,
   SavedPet,
+  AdPlacement,
+  AdCompetitionGroup,
+  Ad,
+  AdDelivery,
 ];
 
 const postgresMigrations = [
   CreateInitialPostgresSchema1783070000000,
   AddPetActiveFlag1783071000000,
+  AddUserRolesAndAds1783600000000,
+  RestructureAdsPlacementsAndCompetitionGroups1783601000000,
+  AddAdCreativeDisplayFields1783602000000,
 ];
 
 const getBoolean = (

@@ -7,6 +7,8 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { User } from '../entities/user.entity';
+import { RolesGuard } from './roles.guard';
+import { DEFAULT_JWT_SECRET } from './auth.constants';
 
 @Module({
   imports: [
@@ -15,7 +17,7 @@ import { User } from '../entities/user.entity';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get('JWT_SECRET') || 'default-secret-key-change-in-production',
+        secret: configService.get('JWT_SECRET') || DEFAULT_JWT_SECRET,
         signOptions: {
           expiresIn: configService.get('JWT_EXPIRES_IN') || '24h',
         },
@@ -24,8 +26,7 @@ import { User } from '../entities/user.entity';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
-  exports: [AuthService],
+  providers: [AuthService, JwtStrategy, RolesGuard],
+  exports: [AuthService, JwtModule, RolesGuard],
 })
 export class AuthModule {}
-

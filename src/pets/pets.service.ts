@@ -23,6 +23,7 @@ import {
   getBreedComparisonKey,
   getCanonicalBreedKey,
 } from '../common/pets/breed-normalization.util';
+import { serializeUserForResponse } from '../common/users/user-response.util';
 
 // Tipo de resposta com campos parseados
 type PetResponse = Omit<Pet, 'fotos' | 'dados_saude'> & {
@@ -85,6 +86,7 @@ export class PetsService {
   private transformPet(pet: Pet): PetResponse {
     return {
       ...pet,
+      usuario: serializeUserForResponse(pet.usuario) as any,
       raca_normalizada: getBreedComparisonKey(pet.raca, pet.raca_normalizada),
       fotos: this.safeJsonParse(pet.fotos, []),
       dados_saude: this.safeJsonParse(pet.dados_saude, null),

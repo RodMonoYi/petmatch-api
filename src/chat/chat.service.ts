@@ -5,6 +5,7 @@ import { Message } from '../entities/message.entity';
 import { Conversation } from '../entities/conversation.entity';
 import { SendMessageDto } from './dto/send-message.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { serializeUserForResponse } from '../common/users/user-response.util';
 
 @Injectable()
 export class ChatService {
@@ -15,6 +16,32 @@ export class ChatService {
     private conversationRepository: Repository<Conversation>,
     private notificationsService: NotificationsService,
   ) {}
+
+  private serializeMessage(message?: Message | null) {
+    if (!message) {
+      return message ?? null;
+    }
+
+    return {
+      ...message,
+      remetente: serializeUserForResponse(message.remetente),
+    };
+  }
+
+  private serializeConversation(conversation?: Conversation | null) {
+    if (!conversation) {
+      return conversation ?? null;
+    }
+
+    return {
+      ...conversation,
+      participante1: serializeUserForResponse(conversation.participante1),
+      participante2: serializeUserForResponse(conversation.participante2),
+      mensagens: conversation.mensagens?.map((message) =>
+        this.serializeMessage(message),
+      ),
+    };
+  }
 
   async getConversationForParticipant(conversationId: string, userId: string) {
     const conversation = await this.conversationRepository.findOne({
@@ -81,7 +108,7 @@ export class ChatService {
       order: { enviada_em: 'ASC' },
     });
 
-    return messages;
+    return messages.map((message) => this.serializeMessage(message));
   }
 
   async getUserConversations(userId: string) {
@@ -111,8 +138,8 @@ export class ChatService {
         });
 
         return {
-          ...conversation,
-          ultimaMensagem: lastMessage,
+          ...this.serializeConversation(conversation),
+          ultimaMensagem: this.serializeMessage(lastMessage),
         };
       }),
     );

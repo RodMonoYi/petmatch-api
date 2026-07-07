@@ -190,6 +190,20 @@ export async function seedDatabase(dataSource: DataSource) {
   const totalUsers = 50;
   const hashedPassword = await bcrypt.hash('123456', 10);
 
+  const adminUser = userRepository.create({
+    nome: 'Administrador PetMatch',
+    email: 'admin@petmatch.local',
+    telefone: '(11) 99999-0000',
+    senha_hash: hashedPassword,
+    role: 'admin',
+    localizacao_geo: JSON.stringify({
+      latitude: -23.5505,
+      longitude: -46.6333,
+    }),
+    raio_maximo: 50,
+  });
+  users.push(await userRepository.save(adminUser));
+
   for (let i = 0; i < totalUsers; i++) {
     const location = SP_LOCATIONS[i % SP_LOCATIONS.length];
 
@@ -212,6 +226,7 @@ export async function seedDatabase(dataSource: DataSource) {
       email: `usuario${i + 1}@teste.com`,
       telefone: `(11) 99999-${String(i + 1).padStart(4, '0')}`,
       senha_hash: hashedPassword,
+      role: 'user',
       localizacao_geo: finalLocationJson,
       raio_maximo: raioMaximo,
     });

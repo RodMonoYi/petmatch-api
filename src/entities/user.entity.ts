@@ -8,6 +8,9 @@ import {
 } from 'typeorm';
 import { Pet } from './pet.entity';
 import { Message } from './message.entity';
+import { Ad } from './ad.entity';
+
+export type UserRole = 'admin' | 'user';
 
 @Entity('usuarios')
 export class User {
@@ -20,8 +23,11 @@ export class User {
   @Column({ length: 255, unique: true })
   email: string;
 
-  @Column({ length: 255 })
+  @Column({ length: 255, select: false })
   senha_hash: string;
+
+  @Column({ length: 20, default: 'user' })
+  role: UserRole;
 
   @Column({ length: 20, nullable: true })
   telefone: string;
@@ -46,4 +52,7 @@ export class User {
 
   @OneToMany(() => Message, (message) => message.remetente)
   mensagens: Message[];
+
+  @OneToMany(() => Ad, (ad) => ad.creator)
+  anuncios_criados: Ad[];
 }

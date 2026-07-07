@@ -10,6 +10,7 @@ import { MatchesModule } from './matches/matches.module';
 import { ChatModule } from './chat/chat.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { createTypeOrmOptions } from './config/database.config';
+import { AdsModule } from './ads/ads.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { createTypeOrmOptions } from './config/database.config';
     MatchesModule,
     ChatModule,
     NotificationsModule,
+    AdsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
