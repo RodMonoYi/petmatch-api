@@ -83,10 +83,12 @@ export class PetsService {
     );
   }
 
-  private transformPet(pet: Pet): PetResponse {
+  private transformPet(pet: Pet, viewerUserId?: string): PetResponse {
     return {
       ...pet,
-      usuario: serializeUserForResponse(pet.usuario) as any,
+      usuario: serializeUserForResponse(pet.usuario, {
+        includePhone: Boolean(viewerUserId && pet.fk_usuario_id === viewerUserId),
+      }) as any,
       raca_normalizada: getBreedComparisonKey(pet.raca, pet.raca_normalizada),
       fotos: this.safeJsonParse(pet.fotos, []),
       dados_saude: this.safeJsonParse(pet.dados_saude, null),
@@ -183,9 +185,9 @@ export class PetsService {
 
     const pet = this.petRepository.create(petData);
     const savedPet = await this.petRepository.save(pet);
-    
+
     const [petWithState] = await this.enrichPetsWithUserState(
-      [this.transformPet(savedPet)],
+      [this.transformPet(savedPet, userId)],
       userId,
     );
 
@@ -320,7 +322,7 @@ export class PetsService {
     const paginatedPets = petsWithDistance.slice(skip, skip + limit);
 
     const transformedPets = paginatedPets.map(({ pet, distancia_km }) => ({
-        ...this.transformPet(pet),
+        ...this.transformPet(pet, userId),
         distancia_km,
       }));
 
@@ -340,7 +342,7 @@ export class PetsService {
     });
 
     return this.enrichPetsWithUserState(
-      pets.map((pet) => this.transformPet(pet)),
+      pets.map((pet) => this.transformPet(pet, userId)),
       userId,
     );
   }
@@ -360,7 +362,7 @@ export class PetsService {
     }
 
     const [petWithState] = await this.enrichPetsWithUserState(
-      [this.transformPet(pet)],
+      [this.transformPet(pet, userId)],
       userId,
     );
 
@@ -399,7 +401,7 @@ export class PetsService {
     const updatedPet = await this.petRepository.save(pet);
 
     const [petWithState] = await this.enrichPetsWithUserState(
-      [this.transformPet(updatedPet)],
+      [this.transformPet(updatedPet, userId)],
       userId,
     );
 
@@ -416,7 +418,7 @@ export class PetsService {
     return this.enrichPetsWithUserState(
       savedPets
         .filter((savedPet) => savedPet.pet?.ativo !== false)
-        .map((savedPet) => this.transformPet(savedPet.pet)),
+        .map((savedPet) => this.transformPet(savedPet.pet, userId)),
       userId,
     );
   }

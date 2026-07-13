@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -25,7 +29,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new UnauthorizedException('Email já está em uso');
+      throw new ConflictException('Email já está em uso');
     }
 
     // Hash da senha
