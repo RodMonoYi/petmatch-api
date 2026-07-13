@@ -13,11 +13,13 @@ import { AdCompetitionGroup } from '../entities/ad-competition-group.entity';
 import { AdPlacement } from '../entities/ad-placement.entity';
 import { Ad } from '../entities/ad.entity';
 import { AdDelivery } from '../entities/ad-delivery.entity';
+import { PetDictionaryEntry } from '../entities/pet-dictionary-entry.entity';
 import { CreateInitialPostgresSchema1783070000000 } from '../migrations/1783070000000-CreateInitialPostgresSchema';
 import { AddPetActiveFlag1783071000000 } from '../migrations/1783071000000-AddPetActiveFlag';
 import { AddUserRolesAndAds1783600000000 } from '../migrations/1783600000000-AddUserRolesAndAds';
 import { RestructureAdsPlacementsAndCompetitionGroups1783601000000 } from '../migrations/1783601000000-RestructureAdsPlacementsAndCompetitionGroups';
 import { AddAdCreativeDisplayFields1783602000000 } from '../migrations/1783602000000-AddAdCreativeDisplayFields';
+import { AddPetDictionaryEntries1783603000000 } from '../migrations/1783603000000-AddPetDictionaryEntries';
 
 type EntityList = Array<Function | string | EntitySchema>;
 
@@ -38,6 +40,7 @@ export const databaseEntities: EntityList = [
   AdCompetitionGroup,
   Ad,
   AdDelivery,
+  PetDictionaryEntry,
 ];
 
 const postgresMigrations = [
@@ -46,6 +49,7 @@ const postgresMigrations = [
   AddUserRolesAndAds1783600000000,
   RestructureAdsPlacementsAndCompetitionGroups1783601000000,
   AddAdCreativeDisplayFields1783602000000,
+  AddPetDictionaryEntries1783603000000,
 ];
 
 const getBoolean = (

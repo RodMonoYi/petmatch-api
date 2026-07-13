@@ -8,11 +8,13 @@ import { Conversation } from '../entities/conversation.entity';
 import { Pet } from '../entities/pet.entity';
 import { User } from '../entities/user.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { PetDictionaryModule } from '../pet-dictionary/pet-dictionary.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Match, Swipe, Conversation, Pet, User]),
     NotificationsModule,
+    PetDictionaryModule,
   ],
   controllers: [MatchesController],
   providers: [MatchesService],

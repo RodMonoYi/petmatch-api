@@ -11,6 +11,7 @@ import { ChatModule } from './chat/chat.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { createTypeOrmOptions } from './config/database.config';
 import { AdsModule } from './ads/ads.module';
+import { PetDictionaryModule } from './pet-dictionary/pet-dictionary.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AdsModule } from './ads/ads.module';
     MatchesModule,
     ChatModule,
     NotificationsModule,
+    PetDictionaryModule,
     AdsModule,
   ],
   controllers: [AppController],

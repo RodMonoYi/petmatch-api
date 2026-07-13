@@ -19,6 +19,7 @@ import {
   getBreedComparisonKey,
 } from '../common/pets/breed-normalization.util';
 import { serializeUserForResponse } from '../common/users/user-response.util';
+import { PetDictionaryService } from '../pet-dictionary/pet-dictionary.service';
 
 @Injectable()
 export class MatchesService {
@@ -34,6 +35,7 @@ export class MatchesService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private notificationsService: NotificationsService,
+    private petDictionaryService: PetDictionaryService,
   ) {}
 
   private safeJsonParse<T>(jsonString: string | null | undefined, defaultValue: T): T {
@@ -63,8 +65,17 @@ export class MatchesService {
     };
   }
 
-  private validatePetCompatibility(pet1: Pet, pet2: Pet) {
-    if (pet1.especie !== pet2.especie) {
+  private async validatePetCompatibility(pet1: Pet, pet2: Pet) {
+    const pet1SpeciesKey = await this.petDictionaryService.getSpeciesComparisonKey(
+      pet1.especie,
+      pet1.especie_normalizada,
+    );
+    const pet2SpeciesKey = await this.petDictionaryService.getSpeciesComparisonKey(
+      pet2.especie,
+      pet2.especie_normalizada,
+    );
+
+    if (!pet1SpeciesKey || pet1SpeciesKey !== pet2SpeciesKey) {
       throw new BadRequestException('Pets de espécies diferentes não podem dar match');
     }
 
@@ -72,8 +83,14 @@ export class MatchesService {
       throw new BadRequestException('Para reprodução, os pets precisam ter gêneros opostos');
     }
 
-    const pet1BreedKey = getBreedComparisonKey(pet1.raca, pet1.raca_normalizada);
-    const pet2BreedKey = getBreedComparisonKey(pet2.raca, pet2.raca_normalizada);
+    const pet1BreedKey = await this.petDictionaryService.getBreedComparisonKey(
+      pet1.raca,
+      pet1.raca_normalizada,
+    );
+    const pet2BreedKey = await this.petDictionaryService.getBreedComparisonKey(
+      pet2.raca,
+      pet2.raca_normalizada,
+    );
     if (!areBreedKeysCompatible(pet1BreedKey, pet2BreedKey)) {
       throw new BadRequestException('Pets de raças diferentes não podem dar match');
     }
@@ -115,7 +132,7 @@ export class MatchesService {
       throw new BadRequestException('Não é possível fazer swipe em pets do mesmo usuário');
     }
 
-    this.validatePetCompatibility(pet1, pet2);
+    await this.validatePetCompatibility(pet1, pet2);
 
     // Verificar se já existe um swipe
     const existingSwipe = await this.swipeRepository.findOne({
@@ -370,14 +387,24 @@ export class MatchesService {
     // Parse localização do dono do pet
     const ownerLocation = parseLocation(petOwner.localizacao_geo);
     const maxRange = petOwner.raio_maximo || 20; // Default 20km
-    const sourceBreedKey = getBreedComparisonKey(pet.raca, pet.raca_normalizada);
+    const sourceSpeciesKey = await this.petDictionaryService.getSpeciesComparisonKey(
+      pet.especie,
+      pet.especie_normalizada,
+    );
+    const sourceBreedKey = await this.petDictionaryService.getBreedComparisonKey(
+      pet.raca,
+      pet.raca_normalizada,
+    );
 
     let query = this.petRepository
       .createQueryBuilder('pet')
       .leftJoinAndSelect('pet.usuario', 'usuario')
       .where('pet.fk_usuario_id != :userId', { userId: pet.fk_usuario_id })
       .andWhere('pet.ativo = :ativo', { ativo: true })
-      .andWhere('pet.especie = :especie', { especie: pet.especie })
+      .andWhere(
+        '(pet.especie_normalizada = :sourceSpeciesKey OR (pet.especie_normalizada IS NULL AND pet.especie = :especie))',
+        { sourceSpeciesKey, especie: pet.especie },
+      )
       .andWhere('usuario.localizacao_geo IS NOT NULL'); // Apenas usuários com localização
 
     if (sourceBreedKey) {
@@ -399,12 +426,21 @@ export class MatchesService {
       query = query.andWhere('pet.genero = :genero', { genero: 'Macho' });
     }
 
-    const pets = (await query.getMany()).filter((candidatePet) => (
-      areBreedKeysCompatible(
-        sourceBreedKey,
-        getBreedComparisonKey(candidatePet.raca, candidatePet.raca_normalizada),
+    const pets = (
+      await Promise.all(
+        (await query.getMany()).map(async (candidatePet) => {
+          const candidateBreedKey =
+            await this.petDictionaryService.getBreedComparisonKey(
+              candidatePet.raca,
+              candidatePet.raca_normalizada,
+            );
+
+          return areBreedKeysCompatible(sourceBreedKey, candidateBreedKey)
+            ? candidatePet
+            : null;
+        }),
       )
-    ));
+    ).filter((candidatePet): candidatePet is Pet => Boolean(candidatePet));
 
     // Filtrar por distância se o dono do pet tiver localização
     let filteredPets = pets;

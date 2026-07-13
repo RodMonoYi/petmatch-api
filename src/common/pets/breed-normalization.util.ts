@@ -1,4 +1,4 @@
-const BREED_ALIAS_GROUPS: Record<string, string[]> = {
+export const DEFAULT_BREED_ALIAS_GROUPS: Record<string, string[]> = {
   srd: [
     'SRD',
     'Sem raça definida',
@@ -64,7 +64,7 @@ export const normalizeBreedText = (value?: string | null): string => {
     .trim();
 };
 
-const BREED_ALIAS_INDEX = Object.entries(BREED_ALIAS_GROUPS).reduce<Record<string, string>>(
+const BREED_ALIAS_INDEX = Object.entries(DEFAULT_BREED_ALIAS_GROUPS).reduce<Record<string, string>>(
   (aliases, [canonicalBreed, breedAliases]) => {
     aliases[normalizeBreedText(canonicalBreed)] = canonicalBreed;
     breedAliases.forEach((alias) => {

@@ -21,9 +21,9 @@ import { SearchPetsDto } from './dto/search-pets.dto';
 import { calculateDistance, parseLocation } from '../common/utils/distance.util';
 import {
   getBreedComparisonKey,
-  getCanonicalBreedKey,
 } from '../common/pets/breed-normalization.util';
 import { serializeUserForResponse } from '../common/users/user-response.util';
+import { PetDictionaryService } from '../pet-dictionary/pet-dictionary.service';
 
 // Tipo de resposta com campos parseados
 type PetResponse = Omit<Pet, 'fotos' | 'dados_saude'> & {
@@ -46,6 +46,7 @@ export class PetsService {
     @InjectRepository(Swipe)
     private swipeRepository: Repository<Swipe>,
     private dataSource: DataSource,
+    private petDictionaryService: PetDictionaryService,
   ) {}
 
   private safeJsonParse<T>(jsonString: string | null | undefined, defaultValue: T): T {
@@ -169,13 +170,26 @@ export class PetsService {
   }
 
   async create(createPetDto: CreatePetDto, userId: string): Promise<PetResponse> {
-    const normalizedBreed = getCanonicalBreedKey(createPetDto.raca);
+    const normalizedSpecies = await this.petDictionaryService.getCanonicalKey(
+      'species',
+      createPetDto.especie,
+    );
+    const normalizedBreed = await this.petDictionaryService.getCanonicalKey(
+      'breed',
+      createPetDto.raca,
+    );
+    if (!normalizedSpecies) {
+      throw new BadRequestException('Espécie do pet é obrigatória');
+    }
+
     if (!normalizedBreed) {
       throw new BadRequestException('Raça do pet é obrigatória');
     }
 
     const petData = {
       ...createPetDto,
+      especie: createPetDto.especie.trim(),
+      especie_normalizada: normalizedSpecies,
       raca: createPetDto.raca.trim(),
       raca_normalizada: normalizedBreed,
       fk_usuario_id: userId,
@@ -210,8 +224,12 @@ export class PetsService {
       ...filters
     } = searchDto;
     const skip = (page - 1) * limit;
+    const normalizedSpeciesFilter =
+      filters.especie && filters.especie !== 'all'
+        ? await this.petDictionaryService.getCanonicalKey('species', filters.especie)
+        : '';
     const normalizedBreedFilter = filters.raca
-      ? getCanonicalBreedKey(filters.raca)
+      ? await this.petDictionaryService.getCanonicalKey('breed', filters.raca)
       : '';
 
     let query = this.petRepository
@@ -224,8 +242,14 @@ export class PetsService {
     }
 
     // Aplicar filtros
-    if (filters.especie) {
-      query = query.andWhere('pet.especie = :especie', { especie: filters.especie });
+    if (normalizedSpeciesFilter) {
+      query = query.andWhere(
+        '(pet.especie_normalizada = :especieNormalizada OR (pet.especie_normalizada IS NULL AND pet.especie = :especie))',
+        {
+          especieNormalizada: normalizedSpeciesFilter,
+          especie: filters.especie,
+        },
+      );
     }
 
     if (normalizedBreedFilter) {
@@ -382,8 +406,15 @@ export class PetsService {
       throw new ForbiddenException('Você não tem permissão para editar este pet');
     }
 
+    const normalizedSpecies = updatePetDto.especie !== undefined
+      ? await this.petDictionaryService.getCanonicalKey('species', updatePetDto.especie)
+      : undefined;
+    if (updatePetDto.especie !== undefined && !normalizedSpecies) {
+      throw new BadRequestException('Espécie do pet é obrigatória');
+    }
+
     const normalizedBreed = updatePetDto.raca !== undefined
-      ? getCanonicalBreedKey(updatePetDto.raca)
+      ? await this.petDictionaryService.getCanonicalKey('breed', updatePetDto.raca)
       : undefined;
     if (updatePetDto.raca !== undefined && !normalizedBreed) {
       throw new BadRequestException('Raça do pet é obrigatória');
@@ -391,6 +422,9 @@ export class PetsService {
 
     const updateData = {
       ...updatePetDto,
+      especie:
+        updatePetDto.especie !== undefined ? updatePetDto.especie.trim() : pet.especie,
+      especie_normalizada: normalizedSpecies ?? pet.especie_normalizada,
       raca: updatePetDto.raca !== undefined ? updatePetDto.raca.trim() : pet.raca,
       raca_normalizada: normalizedBreed ?? pet.raca_normalizada,
       fotos: updatePetDto.fotos ? JSON.stringify(updatePetDto.fotos) : pet.fotos,

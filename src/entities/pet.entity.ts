@@ -23,6 +23,10 @@ export class Pet {
   @Column({ length: 50 })
   especie: string;
 
+  @Index()
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  especie_normalizada?: string | null;
+
   @Column({ length: 100 })
   raca: string;
 
