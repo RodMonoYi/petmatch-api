@@ -9,7 +9,10 @@ export class PetDictionaryController {
   constructor(private readonly petDictionaryService: PetDictionaryService) {}
 
   @Get()
-  listActive(@Query('category') category?: PetDictionaryCategory) {
-    return this.petDictionaryService.listActive(category);
+  listActive(
+    @Query('category') category?: PetDictionaryCategory,
+    @Query('speciesCanonicalKey') speciesCanonicalKey?: string,
+  ) {
+    return this.petDictionaryService.listActive(category, speciesCanonicalKey);
   }
 }

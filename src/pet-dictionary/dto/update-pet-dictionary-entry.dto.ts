@@ -10,6 +10,11 @@ export class UpdatePetDictionaryEntryDto {
   @IsOptional()
   @IsString()
   @MaxLength(120)
+  speciesCanonicalKey?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
   label?: string;
 
   @IsOptional()

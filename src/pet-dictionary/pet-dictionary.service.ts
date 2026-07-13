@@ -6,7 +6,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { normalizeBreedText } from '../common/pets/breed-normalization.util';
 import {
   PetDictionaryEntry,
@@ -21,6 +21,7 @@ type DictionaryIndex = Record<string, string>;
 
 type NormalizedEntryPayload = {
   category: PetDictionaryCategory;
+  speciesCanonicalKey: string | null;
   label: string;
   canonicalKey: string;
   aliases: string[];
@@ -29,10 +30,7 @@ type NormalizedEntryPayload = {
 
 @Injectable()
 export class PetDictionaryService implements OnModuleInit {
-  private readonly indexCache = new Map<
-    PetDictionaryCategory,
-    DictionaryIndex
-  >();
+  private readonly indexCache = new Map<string, DictionaryIndex>();
 
   constructor(
     @InjectRepository(PetDictionaryEntry)
@@ -49,21 +47,27 @@ export class PetDictionaryService implements OnModuleInit {
     return normalizeBreedText(value);
   }
 
-  async list(category?: PetDictionaryCategory) {
+  async list(category?: PetDictionaryCategory, speciesCanonicalKey?: string) {
+    const where = this.buildListWhere(category, speciesCanonicalKey);
+
     return this.dictionaryRepository.find({
-      where: category ? { category } : {},
+      where,
       order: {
         category: 'ASC',
+        speciesCanonicalKey: 'ASC',
         label: 'ASC',
       },
     });
   }
 
-  async listActive(category?: PetDictionaryCategory) {
+  async listActive(category?: PetDictionaryCategory, speciesCanonicalKey?: string) {
+    const where = this.buildListWhere(category, speciesCanonicalKey, true);
+
     return this.dictionaryRepository.find({
-      where: category ? { category, active: true } : { active: true },
+      where,
       order: {
         category: 'ASC',
+        speciesCanonicalKey: 'ASC',
         label: 'ASC',
       },
     });
@@ -71,6 +75,7 @@ export class PetDictionaryService implements OnModuleInit {
 
   async create(dto: CreatePetDictionaryEntryDto) {
     const payload = this.normalizePayload(dto);
+    await this.ensureLinkedSpeciesExists(payload);
     await this.ensureNoCollisions(payload);
 
     const entry = await this.dictionaryRepository.save(
@@ -83,24 +88,53 @@ export class PetDictionaryService implements OnModuleInit {
 
   async update(id: string, dto: UpdatePetDictionaryEntryDto) {
     const entry = await this.findEntryOrFail(id);
+    const previousCanonicalKey = entry.canonicalKey;
     const payload = this.normalizePayload({
       category: entry.category,
+      speciesCanonicalKey:
+        dto.speciesCanonicalKey ?? entry.speciesCanonicalKey ?? undefined,
       label: dto.label ?? entry.label,
       canonicalKey: dto.canonicalKey ?? entry.canonicalKey,
       aliases: dto.aliases ?? entry.aliases,
       active: dto.active ?? entry.active,
     });
 
+    await this.ensureLinkedSpeciesExists(payload);
     await this.ensureNoCollisions(payload, id);
     Object.assign(entry, payload);
 
     const savedEntry = await this.dictionaryRepository.save(entry);
+    if (
+      savedEntry.category === 'species' &&
+      previousCanonicalKey !== savedEntry.canonicalKey
+    ) {
+      await this.dictionaryRepository.update(
+        { category: 'breed', speciesCanonicalKey: previousCanonicalKey },
+        { speciesCanonicalKey: savedEntry.canonicalKey },
+      );
+    }
+
     await this.afterDictionaryChange(savedEntry.category);
     return savedEntry;
   }
 
   async remove(id: string) {
     const entry = await this.findEntryOrFail(id);
+    if (entry.category === 'species') {
+      const linkedBreedsCount = await this.dictionaryRepository.count({
+        where: {
+          category: 'breed',
+          speciesCanonicalKey: entry.canonicalKey,
+        },
+      });
+
+      if (linkedBreedsCount > 0) {
+        throw new BadRequestException(
+          'Não é possível excluir uma espécie com raças vinculadas.',
+        );
+      }
+    }
+
     await this.dictionaryRepository.remove(entry);
     await this.afterDictionaryChange(entry.category);
 
@@ -116,23 +150,26 @@ export class PetDictionaryService implements OnModuleInit {
   async getCanonicalKey(
     category: PetDictionaryCategory,
     value?: string | null,
+    speciesCanonicalKey?: string | null,
   ): Promise<string> {
     const normalizedValue = this.normalizeText(value);
     if (!normalizedValue) return '';
 
-    const index = await this.getIndex(category);
+    const index = await this.getIndex(category, speciesCanonicalKey);
     return index[normalizedValue] ?? normalizedValue;
   }
 
   async getBreedComparisonKey(
     breed?: string | null,
     storedNormalizedBreed?: string | null,
+    speciesCanonicalKey?: string | null,
   ): Promise<string> {
     const storedBreedKey = await this.getCanonicalKey(
       'breed',
       storedNormalizedBreed,
+      speciesCanonicalKey,
     );
-    return storedBreedKey || this.getCanonicalKey('breed', breed);
+    return storedBreedKey || this.getCanonicalKey('breed', breed, speciesCanonicalKey);
   }
 
   async getSpeciesComparisonKey(
@@ -156,6 +193,7 @@ export class PetDictionaryService implements OnModuleInit {
       DEFAULT_PET_DICTIONARY_ENTRIES.map((entry) =>
         this.dictionaryRepository.create({
           ...entry,
+          speciesCanonicalKey: entry.speciesCanonicalKey ?? null,
           active: true,
         }),
       ),
@@ -181,6 +219,10 @@ export class PetDictionaryService implements OnModuleInit {
   ): NormalizedEntryPayload {
     const label = dto.label?.trim();
     const canonicalKey = this.normalizeText(dto.canonicalKey || label);
+    const speciesCanonicalKey =
+      dto.category === 'breed'
+        ? this.normalizeText(dto.speciesCanonicalKey)
+        : null;
 
     if (!label) {
       throw new BadRequestException('Informe o nome principal');
@@ -190,13 +232,61 @@ export class PetDictionaryService implements OnModuleInit {
       throw new BadRequestException('Informe uma chave canônica válida');
     }
 
+    if (dto.category === 'breed' && !speciesCanonicalKey) {
+      throw new BadRequestException('Selecione a espécie desta raça');
+    }
+
     return {
       category: dto.category,
+      speciesCanonicalKey,
       label,
       canonicalKey,
       aliases: this.normalizeAliases(dto.aliases || [], label, canonicalKey),
       active: dto.active ?? true,
     };
+  }
+
+  private buildListWhere(
+    category?: PetDictionaryCategory,
+    speciesCanonicalKey?: string,
+    active?: boolean,
+  ) {
+    const where: {
+      category?: PetDictionaryCategory;
+      speciesCanonicalKey?: string;
+      active?: boolean;
+    } = {};
+
+    if (category) {
+      where.category = category;
+    }
+
+    if (category === 'breed' && speciesCanonicalKey) {
+      where.speciesCanonicalKey = this.normalizeText(speciesCanonicalKey);
+    }
+
+    if (active !== undefined) {
+      where.active = active;
+    }
+
+    return where;
+  }
+
+  private async ensureLinkedSpeciesExists(payload: NormalizedEntryPayload) {
+    if (payload.category !== 'breed') {
+      return;
+    }
+
+    const species = await this.dictionaryRepository.findOne({
+      where: {
+        category: 'species',
+        canonicalKey: payload.speciesCanonicalKey || '',
+      },
+    });
+
+    if (!species) {
+      throw new BadRequestException('Espécie vinculada não encontrada');
+    }
   }
 
   private normalizeAliases(
@@ -226,14 +316,21 @@ export class PetDictionaryService implements OnModuleInit {
     payload: NormalizedEntryPayload,
     currentEntryId?: string,
   ) {
-    const existingEntries = await this.dictionaryRepository.find({
-      where: currentEntryId
-        ? {
-            category: payload.category,
-            id: Not(currentEntryId),
-          }
-        : { category: payload.category },
-    });
+    const query = this.dictionaryRepository
+      .createQueryBuilder('entry')
+      .where('entry.category = :category', { category: payload.category });
+
+    if (payload.category === 'breed') {
+      query.andWhere('entry.speciesCanonicalKey = :speciesCanonicalKey', {
+        speciesCanonicalKey: payload.speciesCanonicalKey,
+      });
+    }
+
+    if (currentEntryId) {
+      query.andWhere('entry.id != :currentEntryId', { currentEntryId });
+    }
+
+    const existingEntries = await query.getMany();
     const requestedTerms = this.getEntryTerms(payload);
 
     existingEntries.forEach((entry) => {
@@ -258,13 +355,28 @@ export class PetDictionaryService implements OnModuleInit {
       .filter(Boolean);
   }
 
-  private async getIndex(category: PetDictionaryCategory) {
-    const cachedIndex = this.indexCache.get(category);
+  private getIndexCacheKey(
+    category: PetDictionaryCategory,
+    speciesCanonicalKey?: string | null,
+  ) {
+    return `${category}:${category === 'breed' ? speciesCanonicalKey || 'all' : 'all'}`;
+  }
+
+  private async getIndex(
+    category: PetDictionaryCategory,
+    speciesCanonicalKey?: string | null,
+  ) {
+    const normalizedSpeciesKey =
+      category === 'breed' && speciesCanonicalKey
+        ? this.normalizeText(speciesCanonicalKey)
+        : undefined;
+    const cacheKey = this.getIndexCacheKey(category, normalizedSpeciesKey);
+    const cachedIndex = this.indexCache.get(cacheKey);
     if (cachedIndex) {
       return cachedIndex;
     }
 
-    const entries = await this.listActive(category);
+    const entries = await this.listActive(category, normalizedSpeciesKey);
     const index = entries.reduce<DictionaryIndex>((aliases, entry) => {
       this.getEntryTerms(entry).forEach((term) => {
         aliases[term] = entry.canonicalKey;
@@ -272,13 +384,17 @@ export class PetDictionaryService implements OnModuleInit {
       return aliases;
     }, {});
 
-    this.indexCache.set(category, index);
+    this.indexCache.set(cacheKey, index);
     return index;
   }
 
   private async afterDictionaryChange(category: PetDictionaryCategory) {
-    this.indexCache.delete(category);
+    this.indexCache.clear();
     await this.rebuildPetsForCategory(category);
+
+    if (category === 'species') {
+      await this.rebuildPetsForCategory('breed');
+    }
   }
 
   private async rebuildPetsForCategory(category: PetDictionaryCategory) {
@@ -298,7 +414,15 @@ export class PetDictionaryService implements OnModuleInit {
       }
 
       if (category === 'breed') {
-        const nextBreedKey = await this.getCanonicalKey('breed', pet.raca);
+        const speciesKey = await this.getCanonicalKey(
+          'species',
+          pet.especie_normalizada || pet.especie,
+        );
+        const nextBreedKey = await this.getCanonicalKey(
+          'breed',
+          pet.raca,
+          speciesKey,
+        );
         if (pet.raca_normalizada !== nextBreedKey) {
           pet.raca_normalizada = nextBreedKey;
           changedPets.push(pet);

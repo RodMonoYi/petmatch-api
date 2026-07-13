@@ -12,6 +12,11 @@ export class CreatePetDictionaryEntryDto {
   @IsIn(['species', 'breed'])
   category: PetDictionaryCategory;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  speciesCanonicalKey?: string;
+
   @IsString()
   @MaxLength(120)
   label: string;

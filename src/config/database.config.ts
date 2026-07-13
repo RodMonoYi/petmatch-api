@@ -20,6 +20,7 @@ import { AddUserRolesAndAds1783600000000 } from '../migrations/1783600000000-Add
 import { RestructureAdsPlacementsAndCompetitionGroups1783601000000 } from '../migrations/1783601000000-RestructureAdsPlacementsAndCompetitionGroups';
 import { AddAdCreativeDisplayFields1783602000000 } from '../migrations/1783602000000-AddAdCreativeDisplayFields';
 import { AddPetDictionaryEntries1783603000000 } from '../migrations/1783603000000-AddPetDictionaryEntries';
+import { AddBreedSpeciesToPetDictionary1783604000000 } from '../migrations/1783604000000-AddBreedSpeciesToPetDictionary';
 
 type EntityList = Array<Function | string | EntitySchema>;
 
@@ -50,6 +51,7 @@ const postgresMigrations = [
   RestructureAdsPlacementsAndCompetitionGroups1783601000000,
   AddAdCreativeDisplayFields1783602000000,
   AddPetDictionaryEntries1783603000000,
+  AddBreedSpeciesToPetDictionary1783604000000,
 ];
 
 const getBoolean = (

@@ -24,8 +24,11 @@ export class AdminPetDictionaryController {
   constructor(private readonly petDictionaryService: PetDictionaryService) {}
 
   @Get()
-  list(@Query('category') category?: PetDictionaryCategory) {
-    return this.petDictionaryService.list(category);
+  list(
+    @Query('category') category?: PetDictionaryCategory,
+    @Query('speciesCanonicalKey') speciesCanonicalKey?: string,
+  ) {
+    return this.petDictionaryService.list(category, speciesCanonicalKey);
   }
 
   @Post()

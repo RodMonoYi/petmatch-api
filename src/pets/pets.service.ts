@@ -177,6 +177,7 @@ export class PetsService {
     const normalizedBreed = await this.petDictionaryService.getCanonicalKey(
       'breed',
       createPetDto.raca,
+      normalizedSpecies,
     );
     if (!normalizedSpecies) {
       throw new BadRequestException('Espécie do pet é obrigatória');
@@ -229,7 +230,11 @@ export class PetsService {
         ? await this.petDictionaryService.getCanonicalKey('species', filters.especie)
         : '';
     const normalizedBreedFilter = filters.raca
-      ? await this.petDictionaryService.getCanonicalKey('breed', filters.raca)
+      ? await this.petDictionaryService.getCanonicalKey(
+          'breed',
+          filters.raca,
+          normalizedSpeciesFilter || undefined,
+        )
       : '';
 
     let query = this.petRepository
@@ -307,9 +312,24 @@ export class PetsService {
     let pets = await query.getMany();
 
     if (normalizedBreedFilter) {
-      pets = pets.filter((pet) => (
-        getBreedComparisonKey(pet.raca, pet.raca_normalizada) === normalizedBreedFilter
-      ));
+      const compatiblePets: Pet[] = [];
+
+      for (const pet of pets) {
+        const petSpeciesKey =
+          pet.especie_normalizada ||
+          (await this.petDictionaryService.getCanonicalKey('species', pet.especie));
+        const petBreedKey = await this.petDictionaryService.getBreedComparisonKey(
+          pet.raca,
+          pet.raca_normalizada,
+          petSpeciesKey,
+        );
+
+        if (petBreedKey === normalizedBreedFilter) {
+          compatiblePets.push(pet);
+        }
+      }
+
+      pets = compatiblePets;
     }
 
     const hasDistanceFilter =
@@ -413,8 +433,16 @@ export class PetsService {
       throw new BadRequestException('Espécie do pet é obrigatória');
     }
 
-    const normalizedBreed = updatePetDto.raca !== undefined
-      ? await this.petDictionaryService.getCanonicalKey('breed', updatePetDto.raca)
+    const nextSpeciesKey =
+      normalizedSpecies ??
+      (pet.especie_normalizada ||
+        (await this.petDictionaryService.getCanonicalKey('species', pet.especie)));
+    const normalizedBreed = updatePetDto.raca !== undefined || updatePetDto.especie !== undefined
+      ? await this.petDictionaryService.getCanonicalKey(
+          'breed',
+          updatePetDto.raca ?? pet.raca,
+          nextSpeciesKey,
+        )
       : undefined;
     if (updatePetDto.raca !== undefined && !normalizedBreed) {
       throw new BadRequestException('Raça do pet é obrigatória');

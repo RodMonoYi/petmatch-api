@@ -86,10 +86,12 @@ export class MatchesService {
     const pet1BreedKey = await this.petDictionaryService.getBreedComparisonKey(
       pet1.raca,
       pet1.raca_normalizada,
+      pet1SpeciesKey,
     );
     const pet2BreedKey = await this.petDictionaryService.getBreedComparisonKey(
       pet2.raca,
       pet2.raca_normalizada,
+      pet2SpeciesKey,
     );
     if (!areBreedKeysCompatible(pet1BreedKey, pet2BreedKey)) {
       throw new BadRequestException('Pets de raças diferentes não podem dar match');
@@ -394,6 +396,7 @@ export class MatchesService {
     const sourceBreedKey = await this.petDictionaryService.getBreedComparisonKey(
       pet.raca,
       pet.raca_normalizada,
+      sourceSpeciesKey,
     );
 
     let query = this.petRepository
@@ -433,6 +436,7 @@ export class MatchesService {
             await this.petDictionaryService.getBreedComparisonKey(
               candidatePet.raca,
               candidatePet.raca_normalizada,
+              sourceSpeciesKey,
             );
 
           return areBreedKeysCompatible(sourceBreedKey, candidateBreedKey)
